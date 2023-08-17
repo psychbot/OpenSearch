@@ -59,6 +59,9 @@ import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
+import static org.opensearch.action.admin.cluster.remotestore.repository.RemoteStoreRepositoryRegistrationHelper.compareNodeAttributes;
+import static org.opensearch.action.admin.cluster.remotestore.repository.RemoteStoreRepositoryRegistrationHelper.isRemoteStoreNode;
+import static org.opensearch.action.admin.cluster.remotestore.repository.RemoteStoreRepositoryRegistrationHelper.validateOrAddRemoteStoreRepository;
 import static org.opensearch.cluster.decommission.DecommissionHelper.nodeCommissioned;
 import static org.opensearch.gateway.GatewayService.STATE_NOT_RECOVERED_BLOCK;
 
@@ -140,6 +143,11 @@ public class JoinTaskExecutor implements ClusterStateTaskExecutor<JoinTaskExecut
         ClusterState.Builder newState;
 
         if (joiningNodes.size() == 1 && joiningNodes.get(0).isFinishElectionTask()) {
+            DiscoveryNode joiningNode = joiningNodes.get(0).node();
+            if (isRemoteStoreNode(joiningNode)) {
+                // TODO: Mutating cluster state like this can be dangerous, this will need refactoring.
+                currentState = validateOrAddRemoteStoreRepository(joiningNode, currentState);
+            }
             return results.successes(joiningNodes).build(currentState);
         } else if (currentNodes.getClusterManagerNode() == null && joiningNodes.stream().anyMatch(Task::isBecomeClusterManagerTask)) {
             assert joiningNodes.stream().anyMatch(Task::isFinishElectionTask) : "becoming a cluster-manager but election is not finished "
@@ -160,6 +168,7 @@ public class JoinTaskExecutor implements ClusterStateTaskExecutor<JoinTaskExecut
         }
 
         DiscoveryNodes.Builder nodesBuilder = DiscoveryNodes.builder(newState.nodes());
+        ClusterState intermediateState;
 
         assert nodesBuilder.isLocalNodeElectedClusterManager();
 
@@ -176,6 +185,12 @@ public class JoinTaskExecutor implements ClusterStateTaskExecutor<JoinTaskExecut
                 logger.debug("received a join request for an existing node [{}]", joinTask.node());
             } else {
                 final DiscoveryNode node = joinTask.node();
+                if (isRemoteStoreNode(node)) {
+                    // TODO: Mutating cluster state like this can be dangerous or anti pattern, this will need
+                    // refactoring.
+                    intermediateState = validateOrAddRemoteStoreRepository(node, newState.build());
+                    newState = ClusterState.builder(intermediateState);
+                }
                 try {
                     if (enforceMajorVersion) {
                         ensureMajorVersionBarrier(node.getVersion(), minClusterNodeVersion);
@@ -187,6 +202,8 @@ public class JoinTaskExecutor implements ClusterStateTaskExecutor<JoinTaskExecut
                     // we have added the same check in handleJoinRequest method and adding it here as this method
                     // would guarantee that a decommissioned node would never be able to join the cluster and ensures correctness
                     ensureNodeCommissioned(node, currentState.metadata());
+
+                    ensureRemoteStoreNodesCompatibility(node, currentState);
                     nodesBuilder.add(node);
                     nodesChanged = true;
                     minClusterNodeVersion = Version.min(minClusterNodeVersion, node.getVersion());
@@ -422,6 +439,45 @@ public class JoinTaskExecutor implements ClusterStateTaskExecutor<JoinTaskExecut
         }
     }
 
+    /**
+     * The method ensures two conditions -
+     * 1. The joining node is remote store if it is joining a remote store cluster.
+     * 2. The joining node is non-remote store if it is joining a non-remote store cluster.
+     * A remote store node is the one which holds the all the remote store attributes and a remote store cluster is
+     * the one which has only homogeneous remote store nodes with same node attributes
+     *
+     * @param joiningNode
+     * @param currentState
+     */
+    public static void ensureRemoteStoreNodesCompatibility(DiscoveryNode joiningNode, ClusterState currentState) {
+        List<DiscoveryNode> existingNodes = new ArrayList<>(currentState.getNodes().getNodes().values());
+
+        /**
+         * If there are no node in the cluster state we will No op the compatibility check as at this point we
+         * cannot determine if this is a remote store cluster or non-remote store cluster.
+         */
+        if (existingNodes.size() == 0) {
+            return;
+        }
+
+        /**
+         * TODO: The below check is valid till we support migration, once we start supporting migration a remote
+         * store node will be able to join a non remote store cluster and vice versa. #7986
+         */
+        if (isRemoteStoreNode(joiningNode)) {
+            if (isRemoteStoreNode(existingNodes.get(0))) {
+                DiscoveryNode existingNode = existingNodes.get(0);
+                compareNodeAttributes(joiningNode, existingNode);
+            } else {
+                throw new IllegalStateException("a remote store node [" + joiningNode + "] is trying to join a non remote store cluster");
+            }
+        } else {
+            if (isRemoteStoreNode(existingNodes.get(0))) {
+                throw new IllegalStateException("a non remote store node [" + joiningNode + "] is trying to join a remote store cluster");
+            }
+        }
+    }
+
     public static Collection<BiConsumer<DiscoveryNode, ClusterState>> addBuiltInJoinValidators(
         Collection<BiConsumer<DiscoveryNode, ClusterState>> onJoinValidators
     ) {
@@ -430,6 +486,7 @@ public class JoinTaskExecutor implements ClusterStateTaskExecutor<JoinTaskExecut
             ensureNodesCompatibility(node.getVersion(), state.getNodes());
             ensureIndexCompatibility(node.getVersion(), state.getMetadata());
             ensureNodeCommissioned(node, state.getMetadata());
+            ensureRemoteStoreNodesCompatibility(node, state);
         });
         validators.addAll(onJoinValidators);
         return Collections.unmodifiableCollection(validators);

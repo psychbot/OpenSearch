@@ -605,6 +605,8 @@ public class Coordinator extends AbstractLifecycleComponent implements Discovery
                     // we are checking source node commission status here to reject any join request coming from a decommissioned node
                     // even before executing the join task to fail fast
                     JoinTaskExecutor.ensureNodeCommissioned(joinRequest.getSourceNode(), stateForJoinValidation.metadata());
+
+                    JoinTaskExecutor.ensureRemoteStoreNodesCompatibility(joinRequest.getSourceNode(), stateForJoinValidation);
                 }
                 sendValidateJoinRequest(stateForJoinValidation, joinRequest, joinCallback);
             } else {
