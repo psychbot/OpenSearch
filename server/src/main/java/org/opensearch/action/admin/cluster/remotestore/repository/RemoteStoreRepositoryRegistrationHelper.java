@@ -26,26 +26,26 @@ import java.util.Map;
  */
 public class RemoteStoreRepositoryRegistrationHelper {
 
-    public static final String REMOTE_STORE_SEGMENT_REPOSITORY_NAME_ATTRIBUTE_KEY = "cluster.remote_store.segment";
-    public static final String REMOTE_STORE_TRANSLOG_REPOSITORY_NAME_ATTRIBUTE_KEY = "cluster.remote_store.translog";
+    public static final String REMOTE_STORE_SEGMENT_REPOSITORY_NAME_ATTRIBUTE_KEY = "remote_store.segment.repository";
+    public static final String REMOTE_STORE_TRANSLOG_REPOSITORY_NAME_ATTRIBUTE_KEY = "remote_store.translog.repository";
     public static final String REMOTE_STORE_REPOSITORY_TYPE_ATTRIBUTE_KEY_FORMAT = "remote_store.repository.%s.type";
     public static final String REMOTE_STORE_REPOSITORY_SETTINGS_ATTRIBUTE_KEY_FORMAT = "remote_store.repository.%s.settings";
 
-    private static void validateAttributeNonNull(DiscoveryNode joiningNode, String attributeKey) {
-        String attributeValue = joiningNode.getAttributes().get(attributeKey);
+    private static void validateAttributeNonNull(DiscoveryNode node, String attributeKey) {
+        String attributeValue = node.getAttributes().get(attributeKey);
         if (attributeValue == null || attributeValue.isEmpty()) {
-            throw new IllegalStateException("joining node [" + joiningNode + "] doesn't have the node attribute [" + attributeKey + "]");
+            throw new IllegalStateException("joining node [" + node + "] doesn't have the node attribute [" + attributeKey + "]");
         }
     }
 
     /**
      * A node will be declared as remote store node if it has any of the remote store node attributes.
      * The method validates that the joining node has any of the remote store node attributes or not.
-     * @param joiningNode
+     * @param node
      * @return boolean value on the basis of remote store node attributes.
      */
-    public static boolean isRemoteStoreNode(DiscoveryNode joiningNode) {
-        Map<String, String> joiningNodeAttributes = joiningNode.getAttributes();
+    public static boolean isRemoteStoreNode(DiscoveryNode node) {
+        Map<String, String> joiningNodeAttributes = node.getAttributes();
         String segmentRepositoryName = joiningNodeAttributes.get(REMOTE_STORE_SEGMENT_REPOSITORY_NAME_ATTRIBUTE_KEY);
         String segmentRepositoryTypeAttributeKey = String.format(REMOTE_STORE_REPOSITORY_TYPE_ATTRIBUTE_KEY_FORMAT, segmentRepositoryName);
         String segmentRepositorySettingsAttributeKey = String.format(
@@ -70,12 +70,12 @@ public class RemoteStoreRepositoryRegistrationHelper {
             || joiningNodeAttributes.get(translogRepositorySettingsAttributeKey) != null;
 
         if (remoteStoreNode) {
-            validateAttributeNonNull(joiningNode, REMOTE_STORE_SEGMENT_REPOSITORY_NAME_ATTRIBUTE_KEY);
-            validateAttributeNonNull(joiningNode, segmentRepositoryTypeAttributeKey);
-            validateAttributeNonNull(joiningNode, segmentRepositorySettingsAttributeKey);
-            validateAttributeNonNull(joiningNode, REMOTE_STORE_TRANSLOG_REPOSITORY_NAME_ATTRIBUTE_KEY);
-            validateAttributeNonNull(joiningNode, translogRepositoryTypeAttributeKey);
-            validateAttributeNonNull(joiningNode, translogRepositorySettingsAttributeKey);
+            validateAttributeNonNull(node, REMOTE_STORE_SEGMENT_REPOSITORY_NAME_ATTRIBUTE_KEY);
+            validateAttributeNonNull(node, segmentRepositoryTypeAttributeKey);
+            validateAttributeNonNull(node, segmentRepositorySettingsAttributeKey);
+            validateAttributeNonNull(node, REMOTE_STORE_TRANSLOG_REPOSITORY_NAME_ATTRIBUTE_KEY);
+            validateAttributeNonNull(node, translogRepositoryTypeAttributeKey);
+            validateAttributeNonNull(node, translogRepositorySettingsAttributeKey);
         }
 
         return remoteStoreNode;
@@ -163,12 +163,12 @@ public class RemoteStoreRepositoryRegistrationHelper {
      * @return updated cluster state
      */
     public static ClusterState validateOrAddRemoteStoreRepository(DiscoveryNode joiningNode, ClusterState currentState) {
-        List<DiscoveryNode> existingNodes = new ArrayList<>(currentState.getNodes().getNodes().values());
+        List<DiscoveryNode> existingNodes = new ArrayList<>(currentState.nodes().getNodes().values());
 
         ClusterState newState = ClusterState.builder(currentState).build();
 
         // TODO: Mutating cluster state like this can be dangerous, this will need refactoring.
-        if (existingNodes.size() == 0) {
+        if (existingNodes.isEmpty() || (existingNodes.size() == 1 && joiningNode.equals(existingNodes.get(0)))) {
             validateAttributeNonNull(joiningNode, REMOTE_STORE_SEGMENT_REPOSITORY_NAME_ATTRIBUTE_KEY);
             validateAttributeNonNull(joiningNode, REMOTE_STORE_TRANSLOG_REPOSITORY_NAME_ATTRIBUTE_KEY);
 

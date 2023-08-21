@@ -143,11 +143,6 @@ public class JoinTaskExecutor implements ClusterStateTaskExecutor<JoinTaskExecut
         ClusterState.Builder newState;
 
         if (joiningNodes.size() == 1 && joiningNodes.get(0).isFinishElectionTask()) {
-            DiscoveryNode joiningNode = joiningNodes.get(0).node();
-            if (isRemoteStoreNode(joiningNode)) {
-                // TODO: Mutating cluster state like this can be dangerous, this will need refactoring.
-                currentState = validateOrAddRemoteStoreRepository(joiningNode, currentState);
-            }
             return results.successes(joiningNodes).build(currentState);
         } else if (currentNodes.getClusterManagerNode() == null && joiningNodes.stream().anyMatch(Task::isBecomeClusterManagerTask)) {
             assert joiningNodes.stream().anyMatch(Task::isFinishElectionTask) : "becoming a cluster-manager but election is not finished "
@@ -183,12 +178,18 @@ public class JoinTaskExecutor implements ClusterStateTaskExecutor<JoinTaskExecut
                 // noop
             } else if (currentNodes.nodeExistsWithSameRoles(joinTask.node())) {
                 logger.debug("received a join request for an existing node [{}]", joinTask.node());
-            } else {
-                final DiscoveryNode node = joinTask.node();
-                if (isRemoteStoreNode(node)) {
+                if (joinTask.node() != null && isRemoteStoreNode(joinTask.node())) {
                     // TODO: Mutating cluster state like this can be dangerous or anti pattern, this will need
                     // refactoring.
-                    intermediateState = validateOrAddRemoteStoreRepository(node, newState.build());
+                    intermediateState = validateOrAddRemoteStoreRepository(joinTask.node(), newState.build());
+                    newState = ClusterState.builder(intermediateState);
+                }
+            } else {
+                final DiscoveryNode node = joinTask.node();
+                if (joinTask.node() != null && isRemoteStoreNode(joinTask.node())) {
+                    // TODO: Mutating cluster state like this can be dangerous or anti pattern, this will need
+                    // refactoring.
+                    intermediateState = validateOrAddRemoteStoreRepository(joinTask.node(), newState.build());
                     newState = ClusterState.builder(intermediateState);
                 }
                 try {
