@@ -85,6 +85,7 @@ import org.opensearch.discovery.SeedHostsProvider;
 import org.opensearch.discovery.SeedHostsResolver;
 import org.opensearch.monitor.NodeHealthService;
 import org.opensearch.monitor.StatusInfo;
+import org.opensearch.repositories.RepositoriesService;
 import org.opensearch.threadpool.Scheduler;
 import org.opensearch.threadpool.ThreadPool.Names;
 import org.opensearch.transport.TransportService;
@@ -201,7 +202,8 @@ public class Coordinator extends AbstractLifecycleComponent implements Discovery
         Random random,
         RerouteService rerouteService,
         ElectionStrategy electionStrategy,
-        NodeHealthService nodeHealthService
+        NodeHealthService nodeHealthService,
+        RepositoriesService repositoriesService
     ) {
         this.settings = settings;
         this.transportService = transportService;
@@ -223,7 +225,8 @@ public class Coordinator extends AbstractLifecycleComponent implements Discovery
             rerouteService,
             nodeHealthService,
             this::onNodeCommissionStatusChange,
-            namedWriteableRegistry
+            namedWriteableRegistry,
+            repositoriesService
         );
         this.persistedStateSupplier = persistedStateSupplier;
         this.noClusterManagerBlockService = new NoClusterManagerBlockService(settings, clusterSettings);

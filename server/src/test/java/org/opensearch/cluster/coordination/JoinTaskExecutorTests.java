@@ -51,6 +51,7 @@ import org.opensearch.cluster.routing.RerouteService;
 import org.opensearch.cluster.routing.allocation.AllocationService;
 import org.opensearch.common.UUIDs;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.repositories.RepositoriesService;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.test.VersionUtils;
 
@@ -59,6 +60,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import static org.opensearch.action.admin.cluster.remotestore.repository.RemoteStoreRepositoryRegistrationHelper.REMOTE_STORE_REPOSITORY_SETTINGS_ATTRIBUTE_KEY_FORMAT;
@@ -183,8 +185,15 @@ public class JoinTaskExecutorTests extends OpenSearchTestCase {
         final AllocationService allocationService = mock(AllocationService.class);
         when(allocationService.adaptAutoExpandReplicas(any())).then(invocationOnMock -> invocationOnMock.getArguments()[0]);
         final RerouteService rerouteService = (reason, priority, listener) -> listener.onResponse(null);
+        final RepositoriesService repositoriesService = mock(RepositoriesService.class);
 
-        final JoinTaskExecutor joinTaskExecutor = new JoinTaskExecutor(Settings.EMPTY, allocationService, logger, rerouteService);
+        final JoinTaskExecutor joinTaskExecutor = new JoinTaskExecutor(
+            Settings.EMPTY,
+            allocationService,
+            logger,
+            rerouteService,
+            repositoriesService
+        );
 
         final DiscoveryNode clusterManagerNode = new DiscoveryNode(UUIDs.base64UUID(), buildNewFakeTransportAddress(), Version.CURRENT);
 
@@ -280,8 +289,15 @@ public class JoinTaskExecutorTests extends OpenSearchTestCase {
         final AllocationService allocationService = mock(AllocationService.class);
         when(allocationService.adaptAutoExpandReplicas(any())).then(invocationOnMock -> invocationOnMock.getArguments()[0]);
         final RerouteService rerouteService = (reason, priority, listener) -> listener.onResponse(null);
+        final RepositoriesService repositoriesService = mock(RepositoriesService.class);
 
-        final JoinTaskExecutor joinTaskExecutor = new JoinTaskExecutor(Settings.EMPTY, allocationService, logger, rerouteService);
+        final JoinTaskExecutor joinTaskExecutor = new JoinTaskExecutor(
+            Settings.EMPTY,
+            allocationService,
+            logger,
+            rerouteService,
+            repositoriesService
+        );
 
         final DiscoveryNode clusterManagerNode = new DiscoveryNode(UUIDs.base64UUID(), buildNewFakeTransportAddress(), Version.CURRENT);
 
@@ -492,8 +508,15 @@ public class JoinTaskExecutorTests extends OpenSearchTestCase {
         final AllocationService allocationService = mock(AllocationService.class);
         when(allocationService.adaptAutoExpandReplicas(any())).then(invocationOnMock -> invocationOnMock.getArguments()[0]);
         final RerouteService rerouteService = (reason, priority, listener) -> listener.onResponse(null);
+        final RepositoriesService repositoriesService = mock(RepositoriesService.class);
 
-        final JoinTaskExecutor joinTaskExecutor = new JoinTaskExecutor(Settings.EMPTY, allocationService, logger, rerouteService);
+        final JoinTaskExecutor joinTaskExecutor = new JoinTaskExecutor(
+            Settings.EMPTY,
+            allocationService,
+            logger,
+            rerouteService,
+            repositoriesService
+        );
 
         final DiscoveryNode clusterManagerNode = new DiscoveryNode(
             UUIDs.base64UUID(),
@@ -520,8 +543,15 @@ public class JoinTaskExecutorTests extends OpenSearchTestCase {
         final AllocationService allocationService = mock(AllocationService.class);
         when(allocationService.adaptAutoExpandReplicas(any())).then(invocationOnMock -> invocationOnMock.getArguments()[0]);
         final RerouteService rerouteService = (reason, priority, listener) -> listener.onResponse(null);
+        final RepositoriesService repositoriesService = mock(RepositoriesService.class);
 
-        final JoinTaskExecutor joinTaskExecutor = new JoinTaskExecutor(Settings.EMPTY, allocationService, logger, rerouteService);
+        final JoinTaskExecutor joinTaskExecutor = new JoinTaskExecutor(
+            Settings.EMPTY,
+            allocationService,
+            logger,
+            rerouteService,
+            repositoriesService
+        );
 
         final DiscoveryNode clusterManagerNode = new DiscoveryNode(
             UUIDs.base64UUID(),
@@ -573,8 +603,15 @@ public class JoinTaskExecutorTests extends OpenSearchTestCase {
         final AllocationService allocationService = mock(AllocationService.class);
         when(allocationService.adaptAutoExpandReplicas(any())).then(invocationOnMock -> invocationOnMock.getArguments()[0]);
         final RerouteService rerouteService = (reason, priority, listener) -> listener.onResponse(null);
+        final RepositoriesService repositoriesService = mock(RepositoriesService.class);
 
-        final JoinTaskExecutor joinTaskExecutor = new JoinTaskExecutor(Settings.EMPTY, allocationService, logger, rerouteService);
+        final JoinTaskExecutor joinTaskExecutor = new JoinTaskExecutor(
+            Settings.EMPTY,
+            allocationService,
+            logger,
+            rerouteService,
+            repositoriesService
+        );
 
         final DiscoveryNode clusterManagerNode = new DiscoveryNode(
             UUIDs.base64UUID(),
@@ -601,8 +638,15 @@ public class JoinTaskExecutorTests extends OpenSearchTestCase {
         final AllocationService allocationService = mock(AllocationService.class);
         when(allocationService.adaptAutoExpandReplicas(any())).then(invocationOnMock -> invocationOnMock.getArguments()[0]);
         final RerouteService rerouteService = (reason, priority, listener) -> listener.onResponse(null);
+        final RepositoriesService repositoriesService = mock(RepositoriesService.class);
 
-        final JoinTaskExecutor joinTaskExecutor = new JoinTaskExecutor(Settings.EMPTY, allocationService, logger, rerouteService);
+        final JoinTaskExecutor joinTaskExecutor = new JoinTaskExecutor(
+            Settings.EMPTY,
+            allocationService,
+            logger,
+            rerouteService,
+            repositoriesService
+        );
 
         final DiscoveryNode clusterManagerNode = new DiscoveryNode(
             UUIDs.base64UUID(),
@@ -689,15 +733,15 @@ public class JoinTaskExecutorTests extends OpenSearchTestCase {
         return new HashMap<>() {
             {
                 put(REMOTE_STORE_SEGMENT_REPOSITORY_NAME_ATTRIBUTE_KEY, segmentRepoName);
-                put(String.format(REMOTE_STORE_REPOSITORY_TYPE_ATTRIBUTE_KEY_FORMAT, segmentRepoName), "s3");
+                put(String.format(Locale.getDefault(), REMOTE_STORE_REPOSITORY_TYPE_ATTRIBUTE_KEY_FORMAT, segmentRepoName), "s3");
                 put(
-                    String.format(REMOTE_STORE_REPOSITORY_SETTINGS_ATTRIBUTE_KEY_FORMAT, segmentRepoName),
+                    String.format(Locale.getDefault(), REMOTE_STORE_REPOSITORY_SETTINGS_ATTRIBUTE_KEY_FORMAT, segmentRepoName),
                     "bucket:segment_bucket,base_path:/segment/path"
                 );
                 put(REMOTE_STORE_TRANSLOG_REPOSITORY_NAME_ATTRIBUTE_KEY, translogRepoName);
-                putIfAbsent(String.format(REMOTE_STORE_REPOSITORY_TYPE_ATTRIBUTE_KEY_FORMAT, translogRepoName), "s3");
+                putIfAbsent(String.format(Locale.getDefault(), REMOTE_STORE_REPOSITORY_TYPE_ATTRIBUTE_KEY_FORMAT, translogRepoName), "s3");
                 putIfAbsent(
-                    String.format(REMOTE_STORE_REPOSITORY_SETTINGS_ATTRIBUTE_KEY_FORMAT, translogRepoName),
+                    String.format(Locale.getDefault(), REMOTE_STORE_REPOSITORY_SETTINGS_ATTRIBUTE_KEY_FORMAT, translogRepoName),
                     "bucket:translog_bucket,base_path:/translog/path"
                 );
             }

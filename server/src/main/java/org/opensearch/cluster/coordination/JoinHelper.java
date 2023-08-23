@@ -61,6 +61,7 @@ import org.opensearch.core.transport.TransportResponse;
 import org.opensearch.core.transport.TransportResponse.Empty;
 import org.opensearch.monitor.NodeHealthService;
 import org.opensearch.monitor.StatusInfo;
+import org.opensearch.repositories.RepositoriesService;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.threadpool.ThreadPool.Names;
 import org.opensearch.transport.BytesTransportRequest;
@@ -143,7 +144,8 @@ public class JoinHelper {
         RerouteService rerouteService,
         NodeHealthService nodeHealthService,
         Consumer<Boolean> nodeCommissioned,
-        NamedWriteableRegistry namedWriteableRegistry
+        NamedWriteableRegistry namedWriteableRegistry,
+        RepositoriesService repositoriesService
     ) {
         this.clusterManagerService = clusterManagerService;
         this.transportService = transportService;
@@ -152,7 +154,13 @@ public class JoinHelper {
         this.nodeCommissioned = nodeCommissioned;
         this.namedWriteableRegistry = namedWriteableRegistry;
 
-        this.joinTaskExecutorGenerator = () -> new JoinTaskExecutor(settings, allocationService, logger, rerouteService) {
+        this.joinTaskExecutorGenerator = () -> new JoinTaskExecutor(
+            settings,
+            allocationService,
+            logger,
+            rerouteService,
+            repositoriesService
+        ) {
 
             private final long term = currentTermSupplier.getAsLong();
 
@@ -618,7 +626,7 @@ public class JoinHelper {
             if (newMode == Mode.LEADER) {
                 final Map<JoinTaskExecutor.Task, ClusterStateTaskListener> pendingAsTasks = new LinkedHashMap<>();
                 joinRequestAccumulator.forEach((key, value) -> {
-                    final JoinTaskExecutor.Task task = new JoinTaskExecutor.Task(key, "elect leader");
+                    final JoinTaskExecutor.Task task = new JoinTaskExecutor.Task(key, JoinTaskExecutor.Task.ELECT_LEADER_TASK_REASON);
                     pendingAsTasks.put(task, new JoinTaskListener(task, value));
                 });
 

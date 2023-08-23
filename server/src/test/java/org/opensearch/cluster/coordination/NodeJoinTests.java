@@ -59,6 +59,7 @@ import org.opensearch.core.transport.TransportResponse;
 import org.opensearch.monitor.NodeHealthService;
 import org.opensearch.monitor.StatusInfo;
 import org.opensearch.node.Node;
+import org.opensearch.repositories.RepositoriesService;
 import org.opensearch.test.ClusterServiceUtils;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.test.transport.CapturingTransport;
@@ -88,6 +89,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+
+import org.mockito.Mockito;
 
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
@@ -260,7 +263,8 @@ public class NodeJoinTests extends OpenSearchTestCase {
             random,
             (s, p, r) -> {},
             ElectionStrategy.DEFAULT_INSTANCE,
-            nodeHealthService
+            nodeHealthService,
+            Mockito.mock(RepositoriesService.class)
         );
         transportService.start();
         transportService.acceptIncomingRequests();

@@ -30,20 +30,29 @@ public class RemoteStoreRepositoryRegistrationIT extends RemoteStoreBaseIntegTes
         return Arrays.asList(MockTransportService.TestPlugin.class);
     }
 
-    public void testSingleNodeClusterRepositoryRegistration() {
-        internalCluster().startClusterManagerOnlyNode(remoteStoreNodeAttributes(REPOSITORY_NAME, REPOSITORY_2_NAME));
-        ensureStableCluster(1);
+    private void assertRemoteStoreRepositoryOnAllNodes() {
+        RepositoriesMetadata repositories = internalCluster().getInstance(ClusterService.class, internalCluster().getNodeNames()[0])
+            .state()
+            .metadata()
+            .custom(RepositoriesMetadata.TYPE);
+        RepositoryMetadata actualSegmentRepository = repositories.repository(REPOSITORY_NAME);
+        RepositoryMetadata actualTranslogRepository = repositories.repository(REPOSITORY_2_NAME);
+
         for (String nodeName : internalCluster().getNodeNames()) {
             ClusterService clusterService = internalCluster().getInstance(ClusterService.class, nodeName);
             DiscoveryNode node = clusterService.localNode();
-            RepositoriesMetadata repositories = clusterService.state().metadata().custom(RepositoriesMetadata.TYPE);
-            RepositoryMetadata actualSegmentRepository = repositories.repository(REPOSITORY_NAME);
-            RepositoryMetadata actualTranslogRepository = repositories.repository(REPOSITORY_2_NAME);
             RepositoryMetadata expectedSegmentRepository = buildRepositoryMetadata(node, REPOSITORY_NAME);
             RepositoryMetadata expectedTranslogRepository = buildRepositoryMetadata(node, REPOSITORY_2_NAME);
             assertTrue(actualSegmentRepository.equalsIgnoreGenerations(expectedSegmentRepository));
             assertTrue(actualTranslogRepository.equalsIgnoreGenerations(expectedTranslogRepository));
         }
+    }
+
+    public void testSingleNodeClusterRepositoryRegistration() {
+        internalCluster().startClusterManagerOnlyNode(remoteStoreNodeAttributes(REPOSITORY_NAME, REPOSITORY_2_NAME));
+        ensureStableCluster(1);
+
+        assertRemoteStoreRepositoryOnAllNodes();
     }
 
     public void testMultiNodeClusterRepositoryRegistration() {
@@ -52,17 +61,7 @@ public class RemoteStoreRepositoryRegistrationIT extends RemoteStoreBaseIntegTes
         internalCluster().startNodes(3, clusterSettings);
         ensureStableCluster(4);
 
-        for (String nodeName : internalCluster().getNodeNames()) {
-            ClusterService clusterService = internalCluster().getInstance(ClusterService.class, nodeName);
-            DiscoveryNode node = clusterService.localNode();
-            RepositoriesMetadata repositories = clusterService.state().metadata().custom(RepositoriesMetadata.TYPE);
-            RepositoryMetadata actualSegmentRepository = repositories.repository(REPOSITORY_NAME);
-            RepositoryMetadata actualTranslogRepository = repositories.repository(REPOSITORY_2_NAME);
-            RepositoryMetadata expectedSegmentRepository = buildRepositoryMetadata(node, REPOSITORY_NAME);
-            RepositoryMetadata expectedTranslogRepository = buildRepositoryMetadata(node, REPOSITORY_2_NAME);
-            assertTrue(actualSegmentRepository.equalsIgnoreGenerations(expectedSegmentRepository));
-            assertTrue(actualTranslogRepository.equalsIgnoreGenerations(expectedTranslogRepository));
-        }
+        assertRemoteStoreRepositoryOnAllNodes();
     }
 
     public void testMultiNodeClusterRepositoryRegistrationWithMultipleMasters() {
@@ -71,16 +70,6 @@ public class RemoteStoreRepositoryRegistrationIT extends RemoteStoreBaseIntegTes
         internalCluster().startNodes(3, clusterSettings);
         ensureStableCluster(6);
 
-        for (String nodeName : internalCluster().getNodeNames()) {
-            ClusterService clusterService = internalCluster().getInstance(ClusterService.class, nodeName);
-            DiscoveryNode node = clusterService.localNode();
-            RepositoriesMetadata repositories = clusterService.state().metadata().custom(RepositoriesMetadata.TYPE);
-            RepositoryMetadata actualSegmentRepository = repositories.repository(REPOSITORY_NAME);
-            RepositoryMetadata actualTranslogRepository = repositories.repository(REPOSITORY_2_NAME);
-            RepositoryMetadata expectedSegmentRepository = buildRepositoryMetadata(node, REPOSITORY_NAME);
-            RepositoryMetadata expectedTranslogRepository = buildRepositoryMetadata(node, REPOSITORY_2_NAME);
-            assertTrue(actualSegmentRepository.equalsIgnoreGenerations(expectedSegmentRepository));
-            assertTrue(actualTranslogRepository.equalsIgnoreGenerations(expectedTranslogRepository));
-        }
+        assertRemoteStoreRepositoryOnAllNodes();
     }
 }

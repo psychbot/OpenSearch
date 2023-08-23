@@ -46,6 +46,7 @@ import org.opensearch.common.util.io.IOUtils;
 import org.opensearch.core.common.io.stream.NamedWriteableRegistry;
 import org.opensearch.gateway.GatewayMetaState;
 import org.opensearch.plugins.DiscoveryPlugin;
+import org.opensearch.repositories.RepositoriesService;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.test.transport.MockTransportService;
 import org.opensearch.threadpool.ThreadPool;
@@ -76,6 +77,8 @@ public class DiscoveryModuleTests extends OpenSearchTestCase {
     private ClusterSettings clusterSettings;
     private GatewayMetaState gatewayMetaState;
 
+    private RepositoriesService repositoriesService;
+
     public interface DummyHostsProviderPlugin extends DiscoveryPlugin {
         Map<String, Supplier<SeedHostsProvider>> impl();
 
@@ -98,6 +101,7 @@ public class DiscoveryModuleTests extends OpenSearchTestCase {
         clusterApplier = mock(ClusterApplier.class);
         clusterSettings = new ClusterSettings(Settings.EMPTY, ClusterSettings.BUILT_IN_CLUSTER_SETTINGS);
         gatewayMetaState = mock(GatewayMetaState.class);
+        repositoriesService = mock(RepositoriesService.class);
     }
 
     @After
@@ -120,7 +124,8 @@ public class DiscoveryModuleTests extends OpenSearchTestCase {
             createTempDir().toAbsolutePath(),
             gatewayMetaState,
             mock(RerouteService.class),
-            null
+            null,
+            repositoriesService
         );
     }
 

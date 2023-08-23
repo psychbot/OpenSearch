@@ -2506,7 +2506,8 @@ public class SnapshotResiliencyTests extends OpenSearchTestCase {
                     random(),
                     rerouteService,
                     ElectionStrategy.DEFAULT_INSTANCE,
-                    () -> new StatusInfo(HEALTHY, "healthy-info")
+                    () -> new StatusInfo(HEALTHY, "healthy-info"),
+                    repositoriesService
                 );
                 clusterManagerService.setClusterStatePublisher(coordinator);
                 coordinator.start();

@@ -53,6 +53,7 @@ import org.opensearch.core.common.transport.TransportAddress;
 import org.opensearch.gateway.GatewayMetaState;
 import org.opensearch.monitor.NodeHealthService;
 import org.opensearch.plugins.DiscoveryPlugin;
+import org.opensearch.repositories.RepositoriesService;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.transport.TransportService;
 
@@ -129,7 +130,8 @@ public class DiscoveryModule {
         Path configFile,
         GatewayMetaState gatewayMetaState,
         RerouteService rerouteService,
-        NodeHealthService nodeHealthService
+        NodeHealthService nodeHealthService,
+        RepositoriesService repositoriesService
     ) {
         final Collection<BiConsumer<DiscoveryNode, ClusterState>> joinValidators = new ArrayList<>();
         final Map<String, Supplier<SeedHostsProvider>> hostProviders = new HashMap<>();
@@ -205,7 +207,8 @@ public class DiscoveryModule {
                 new Random(Randomness.get().nextLong()),
                 rerouteService,
                 electionStrategy,
-                nodeHealthService
+                nodeHealthService,
+                repositoriesService
             );
         } else {
             throw new IllegalArgumentException("Unknown discovery type [" + discoveryType + "]");

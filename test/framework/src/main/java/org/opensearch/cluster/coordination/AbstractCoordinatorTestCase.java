@@ -84,6 +84,7 @@ import org.opensearch.gateway.MockGatewayMetaState;
 import org.opensearch.gateway.PersistedClusterStateService;
 import org.opensearch.monitor.NodeHealthService;
 import org.opensearch.monitor.StatusInfo;
+import org.opensearch.repositories.RepositoriesService;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.test.disruption.DisruptableMockTransport;
 import org.opensearch.test.disruption.DisruptableMockTransport.ConnectionStatus;
@@ -1033,6 +1034,7 @@ public class AbstractCoordinatorTestCase extends OpenSearchTestCase {
             TransportService transportService;
             private DisruptableMockTransport mockTransport;
             private NodeHealthService nodeHealthService;
+            private RepositoriesService repositoriesService;
             List<BiConsumer<DiscoveryNode, ClusterState>> extraJoinValidators = new ArrayList<>();
 
             ClusterNode(int nodeIndex, boolean clusterManagerEligible, Settings nodeSettings, NodeHealthService nodeHealthService) {
@@ -1125,6 +1127,14 @@ public class AbstractCoordinatorTestCase extends OpenSearchTestCase {
                 clusterService.setNodeConnectionsService(
                     new NodeConnectionsService(clusterService.getSettings(), threadPool, transportService)
                 );
+                repositoriesService = new RepositoriesService(
+                    settings,
+                    clusterService,
+                    transportService,
+                    Collections.emptyMap(),
+                    Collections.emptyMap(),
+                    threadPool
+                );
                 final Collection<BiConsumer<DiscoveryNode, ClusterState>> onJoinValidators = Collections.singletonList(
                     (dn, cs) -> extraJoinValidators.forEach(validator -> validator.accept(dn, cs))
                 );
@@ -1144,7 +1154,8 @@ public class AbstractCoordinatorTestCase extends OpenSearchTestCase {
                     Randomness.get(),
                     (s, p, r) -> {},
                     getElectionStrategy(),
-                    nodeHealthService
+                    nodeHealthService,
+                    repositoriesService
                 );
                 clusterManagerService.setClusterStatePublisher(coordinator);
                 final GatewayService gatewayService = new GatewayService(

@@ -977,7 +977,8 @@ public class Node implements Closeable {
                 environment.configDir(),
                 gatewayMetaState,
                 rerouteService,
-                fsHealthService
+                fsHealthService,
+                repositoryService
             );
             final SearchPipelineService searchPipelineService = new SearchPipelineService(
                 clusterService,

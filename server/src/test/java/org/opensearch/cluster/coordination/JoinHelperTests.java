@@ -46,6 +46,7 @@ import org.opensearch.core.common.bytes.BytesReference;
 import org.opensearch.core.common.io.stream.NamedWriteableRegistry;
 import org.opensearch.core.transport.TransportResponse;
 import org.opensearch.monitor.StatusInfo;
+import org.opensearch.repositories.RepositoriesService;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.test.transport.CapturingTransport;
 import org.opensearch.test.transport.CapturingTransport.CapturedRequest;
@@ -64,6 +65,8 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
+
+import org.mockito.Mockito;
 
 import static org.opensearch.cluster.coordination.JoinHelper.VALIDATE_COMPRESSED_JOIN_ACTION_NAME;
 import static org.opensearch.cluster.coordination.JoinHelper.VALIDATE_JOIN_ACTION_NAME;
@@ -107,7 +110,8 @@ public class JoinHelperTests extends OpenSearchTestCase {
             (s, p, r) -> {},
             () -> new StatusInfo(HEALTHY, "info"),
             nodeCommissioned -> {},
-            namedWriteableRegistry
+            namedWriteableRegistry,
+            Mockito.mock(RepositoriesService.class)
         );
         transportService.start();
 
@@ -292,7 +296,8 @@ public class JoinHelperTests extends OpenSearchTestCase {
             (s, p, r) -> {},
             () -> nodeHealthServiceStatus.get(),
             nodeCommissioned -> {},
-            namedWriteableRegistry
+            namedWriteableRegistry,
+            Mockito.mock(RepositoriesService.class)
         );
         transportService.start();
 
@@ -491,7 +496,8 @@ public class JoinHelperTests extends OpenSearchTestCase {
             (s, p, r) -> {},
             null,
             nodeCommissioned -> {},
-            namedWriteableRegistry
+            namedWriteableRegistry,
+            Mockito.mock(RepositoriesService.class)
         ); // registers
            // request
            // handler

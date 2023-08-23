@@ -107,6 +107,7 @@ import org.opensearch.index.shard.IndexEventListener;
 import org.opensearch.indices.IndicesService;
 import org.opensearch.indices.ShardLimitValidator;
 import org.opensearch.indices.SystemIndices;
+import org.opensearch.repositories.RepositoriesService;
 import org.opensearch.snapshots.EmptySnapshotsInfoService;
 import org.opensearch.test.gateway.TestGatewayAllocator;
 import org.opensearch.threadpool.ThreadPool;
@@ -150,6 +151,7 @@ public class ClusterStateChanges {
     private final TransportUpdateSettingsAction transportUpdateSettingsAction;
     private final TransportClusterRerouteAction transportClusterRerouteAction;
     private final TransportCreateIndexAction transportCreateIndexAction;
+    private final RepositoriesService repositoriesService;
 
     private final NodeRemovalClusterStateTaskExecutor nodeRemovalExecutor;
     private final JoinTaskExecutor joinTaskExecutor;
@@ -362,8 +364,17 @@ public class ClusterStateChanges {
             indexNameExpressionResolver
         );
 
+        repositoriesService = new RepositoriesService(
+            Settings.EMPTY,
+            clusterService,
+            transportService,
+            Collections.emptyMap(),
+            Collections.emptyMap(),
+            threadPool
+        );
+
         nodeRemovalExecutor = new NodeRemovalClusterStateTaskExecutor(allocationService, logger);
-        joinTaskExecutor = new JoinTaskExecutor(Settings.EMPTY, allocationService, logger, (s, p, r) -> {});
+        joinTaskExecutor = new JoinTaskExecutor(Settings.EMPTY, allocationService, logger, (s, p, r) -> {}, repositoriesService);
     }
 
     public ClusterState createIndex(ClusterState state, CreateIndexRequest request) {
