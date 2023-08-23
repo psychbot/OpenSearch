@@ -52,6 +52,7 @@ import org.opensearch.cluster.routing.allocation.AllocationService;
 import org.opensearch.common.UUIDs;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.repositories.RepositoriesService;
+import org.opensearch.repositories.Repository;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.test.VersionUtils;
 
@@ -63,7 +64,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-import static org.opensearch.action.admin.cluster.remotestore.repository.RemoteStoreRepositoryRegistrationHelper.REMOTE_STORE_REPOSITORY_SETTINGS_ATTRIBUTE_KEY_FORMAT;
+import static org.opensearch.action.admin.cluster.remotestore.repository.RemoteStoreRepositoryRegistrationHelper.REMOTE_STORE_REPOSITORY_SETTINGS_ATTRIBUTE_KEY_PREFIX;
 import static org.opensearch.action.admin.cluster.remotestore.repository.RemoteStoreRepositoryRegistrationHelper.REMOTE_STORE_REPOSITORY_TYPE_ATTRIBUTE_KEY_FORMAT;
 import static org.opensearch.action.admin.cluster.remotestore.repository.RemoteStoreRepositoryRegistrationHelper.REMOTE_STORE_SEGMENT_REPOSITORY_NAME_ATTRIBUTE_KEY;
 import static org.opensearch.action.admin.cluster.remotestore.repository.RemoteStoreRepositoryRegistrationHelper.REMOTE_STORE_TRANSLOG_REPOSITORY_NAME_ATTRIBUTE_KEY;
@@ -388,7 +389,7 @@ public class JoinTaskExecutorTests extends OpenSearchTestCase {
             IllegalStateException.class,
             () -> JoinTaskExecutor.ensureRemoteStoreNodesCompatibility(joiningNode, currentState)
         );
-        assertTrue(e.getMessage().equals("a remote store node [" + joiningNode + "] is trying to join a non remote store cluster"));
+        assertTrue(e.getMessage().equals("a remote store node [" + joiningNode + "] is trying to join a non remote " + "store cluster."));
     }
 
     public void testJoinClusterWithRemoteStoreNodeJoiningRemoteStoreCluster() {
@@ -472,7 +473,7 @@ public class JoinTaskExecutorTests extends OpenSearchTestCase {
             IllegalStateException.class,
             () -> JoinTaskExecutor.ensureRemoteStoreNodesCompatibility(joiningNode, currentState)
         );
-        assertTrue(e.getMessage().equals("a non remote store node [" + joiningNode + "] is trying to join a remote store cluster"));
+        assertTrue(e.getMessage().equals("a non remote store node [" + joiningNode + "] is trying to join a remote " + "store cluster."));
     }
 
     public void testPreventJoinClusterWithRemoteStoreNodeWithPartialAttributesJoiningRemoteStoreCluster() {
@@ -497,7 +498,8 @@ public class JoinTaskExecutorTests extends OpenSearchTestCase {
                 () -> JoinTaskExecutor.ensureRemoteStoreNodesCompatibility(joiningNode, currentState)
             );
             assertTrue(
-                e.getMessage().equals("joining node [" + joiningNode + "] doesn't have the node attribute [" + nodeAttribute.getKey() + "]")
+                e.getMessage()
+                    .equals("joining node [" + joiningNode + "] doesn't have the node attribute [" + nodeAttribute.getKey() + "].")
             );
             remoteStoreNodeAttributes.put(nodeAttribute.getKey(), nodeAttribute.getValue());
         }
@@ -508,7 +510,13 @@ public class JoinTaskExecutorTests extends OpenSearchTestCase {
         final AllocationService allocationService = mock(AllocationService.class);
         when(allocationService.adaptAutoExpandReplicas(any())).then(invocationOnMock -> invocationOnMock.getArguments()[0]);
         final RerouteService rerouteService = (reason, priority, listener) -> listener.onResponse(null);
+        final RepositoryMetadata repositoryMetadata = mock(RepositoryMetadata.class);
+        when(repositoryMetadata.name()).thenReturn(SEGMENT_REPO, TRANSLOG_REPO);
+        when(repositoryMetadata.type()).thenReturn("s3");
+        final Repository repository = mock(Repository.class);
+        when(repository.getMetadata()).thenReturn(repositoryMetadata);
         final RepositoriesService repositoriesService = mock(RepositoriesService.class);
+        when(repositoriesService.createRepository(any(), any())).thenReturn(repository);
 
         final JoinTaskExecutor joinTaskExecutor = new JoinTaskExecutor(
             Settings.EMPTY,
@@ -526,11 +534,18 @@ public class JoinTaskExecutorTests extends OpenSearchTestCase {
             Version.CURRENT
         );
 
-        final ClusterState clusterState = ClusterState.builder(ClusterName.DEFAULT).build();
+        final ClusterState clusterState = ClusterState.builder(ClusterName.DEFAULT)
+            .nodes(
+                DiscoveryNodes.builder()
+                    .add(clusterManagerNode)
+                    .localNodeId(clusterManagerNode.getId())
+                    .clusterManagerNodeId(clusterManagerNode.getId())
+            )
+            .build();
 
         final ClusterStateTaskExecutor.ClusterTasksResult<JoinTaskExecutor.Task> result = joinTaskExecutor.execute(
             clusterState,
-            List.of(new JoinTaskExecutor.Task(clusterManagerNode, "_FINISH_ELECTION_"))
+            List.of(new JoinTaskExecutor.Task(clusterManagerNode, "elect leader"))
         );
         assertThat(result.executionResults.entrySet(), hasSize(1));
         final ClusterStateTaskExecutor.TaskResult taskResult = result.executionResults.values().iterator().next();
@@ -590,7 +605,7 @@ public class JoinTaskExecutorTests extends OpenSearchTestCase {
 
         final ClusterStateTaskExecutor.ClusterTasksResult<JoinTaskExecutor.Task> result = joinTaskExecutor.execute(
             clusterState,
-            List.of(new JoinTaskExecutor.Task(joiningNode, "test"))
+            List.of(new JoinTaskExecutor.Task(joiningNode, "elect leader"))
         );
         assertThat(result.executionResults.entrySet(), hasSize(1));
         final ClusterStateTaskExecutor.TaskResult taskResult = result.executionResults.values().iterator().next();
@@ -603,7 +618,13 @@ public class JoinTaskExecutorTests extends OpenSearchTestCase {
         final AllocationService allocationService = mock(AllocationService.class);
         when(allocationService.adaptAutoExpandReplicas(any())).then(invocationOnMock -> invocationOnMock.getArguments()[0]);
         final RerouteService rerouteService = (reason, priority, listener) -> listener.onResponse(null);
+        final RepositoryMetadata repositoryMetadata = mock(RepositoryMetadata.class);
+        when(repositoryMetadata.name()).thenReturn(COMMON_REPO);
+        when(repositoryMetadata.type()).thenReturn("s3");
+        final Repository repository = mock(Repository.class);
+        when(repository.getMetadata()).thenReturn(repositoryMetadata);
         final RepositoriesService repositoriesService = mock(RepositoriesService.class);
+        when(repositoriesService.createRepository(any(), any())).thenReturn(repository);
 
         final JoinTaskExecutor joinTaskExecutor = new JoinTaskExecutor(
             Settings.EMPTY,
@@ -621,11 +642,18 @@ public class JoinTaskExecutorTests extends OpenSearchTestCase {
             Version.CURRENT
         );
 
-        final ClusterState clusterState = ClusterState.builder(ClusterName.DEFAULT).build();
+        final ClusterState clusterState = ClusterState.builder(ClusterName.DEFAULT)
+            .nodes(
+                DiscoveryNodes.builder()
+                    .add(clusterManagerNode)
+                    .localNodeId(clusterManagerNode.getId())
+                    .clusterManagerNodeId(clusterManagerNode.getId())
+            )
+            .build();
 
         final ClusterStateTaskExecutor.ClusterTasksResult<JoinTaskExecutor.Task> result = joinTaskExecutor.execute(
             clusterState,
-            List.of(new JoinTaskExecutor.Task(clusterManagerNode, "_FINISH_ELECTION_"))
+            List.of(new JoinTaskExecutor.Task(clusterManagerNode, "elect leader"))
         );
         assertThat(result.executionResults.entrySet(), hasSize(1));
         final ClusterStateTaskExecutor.TaskResult taskResult = result.executionResults.values().iterator().next();
@@ -730,20 +758,37 @@ public class JoinTaskExecutorTests extends OpenSearchTestCase {
     private static final String COMMON_REPO = "remote-repo";
 
     private Map<String, String> remoteStoreNodeAttributes(String segmentRepoName, String translogRepoName) {
+        String segmentRepositoryTypeAttributeKey = String.format(
+            Locale.getDefault(),
+            REMOTE_STORE_REPOSITORY_TYPE_ATTRIBUTE_KEY_FORMAT,
+            segmentRepoName
+        );
+        String segmentRepositorySettingsAttributeKeyPrefix = String.format(
+            Locale.getDefault(),
+            REMOTE_STORE_REPOSITORY_SETTINGS_ATTRIBUTE_KEY_PREFIX,
+            segmentRepoName
+        );
+        String translogRepositoryTypeAttributeKey = String.format(
+            Locale.getDefault(),
+            REMOTE_STORE_REPOSITORY_TYPE_ATTRIBUTE_KEY_FORMAT,
+            translogRepoName
+        );
+        String translogRepositorySettingsAttributeKeyPrefix = String.format(
+            Locale.getDefault(),
+            REMOTE_STORE_REPOSITORY_SETTINGS_ATTRIBUTE_KEY_PREFIX,
+            translogRepoName
+        );
+
         return new HashMap<>() {
             {
                 put(REMOTE_STORE_SEGMENT_REPOSITORY_NAME_ATTRIBUTE_KEY, segmentRepoName);
-                put(String.format(Locale.getDefault(), REMOTE_STORE_REPOSITORY_TYPE_ATTRIBUTE_KEY_FORMAT, segmentRepoName), "s3");
-                put(
-                    String.format(Locale.getDefault(), REMOTE_STORE_REPOSITORY_SETTINGS_ATTRIBUTE_KEY_FORMAT, segmentRepoName),
-                    "bucket:segment_bucket,base_path:/segment/path"
-                );
+                put(segmentRepositoryTypeAttributeKey, "s3");
+                put(segmentRepositorySettingsAttributeKeyPrefix + "bucket", "segment_bucket");
+                put(segmentRepositorySettingsAttributeKeyPrefix + "base_path", "/segment/path");
                 put(REMOTE_STORE_TRANSLOG_REPOSITORY_NAME_ATTRIBUTE_KEY, translogRepoName);
-                putIfAbsent(String.format(Locale.getDefault(), REMOTE_STORE_REPOSITORY_TYPE_ATTRIBUTE_KEY_FORMAT, translogRepoName), "s3");
-                putIfAbsent(
-                    String.format(Locale.getDefault(), REMOTE_STORE_REPOSITORY_SETTINGS_ATTRIBUTE_KEY_FORMAT, translogRepoName),
-                    "bucket:translog_bucket,base_path:/translog/path"
-                );
+                putIfAbsent(translogRepositoryTypeAttributeKey, "s3");
+                putIfAbsent(translogRepositorySettingsAttributeKeyPrefix + "bucket", "translog_bucket");
+                putIfAbsent(translogRepositorySettingsAttributeKeyPrefix + "base_path", "/translog/path");
             }
         };
     }
@@ -772,7 +817,7 @@ public class JoinTaskExecutorTests extends OpenSearchTestCase {
                         + existingNode
                         + "] value ["
                         + existingNodeAttribute.getValue()
-                        + "]"
+                        + "]."
                 )
         );
     }

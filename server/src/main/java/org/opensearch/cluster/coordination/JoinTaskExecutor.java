@@ -471,13 +471,13 @@ public class JoinTaskExecutor implements ClusterStateTaskExecutor<JoinTaskExecut
                 DiscoveryNode existingNode = existingNodes.get(0);
                 compareRemoteStoreNodeAttributes(joiningNode, existingNode);
             } else {
-                throw new IllegalStateException("a remote store node [" + joiningNode + "] is trying to join a non remote store cluster");
+                throw new IllegalStateException(
+                    "a remote store node [" + joiningNode + "] is trying to join a non " + "remote store cluster."
+                );
             }
         } else {
             if (isRemoteStoreNode(existingNodes.get(0))) {
-                throw new IllegalStateException(
-                    "a non remote store node [" + existingNodes.get(0) + "] is trying to join a remote store cluster"
-                );
+                throw new IllegalStateException("a non remote store node [" + joiningNode + "] is trying to join a remote store cluster.");
             }
         }
     }

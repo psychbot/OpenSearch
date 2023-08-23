@@ -27,6 +27,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * RemoteStore Repository Registration helper
@@ -37,7 +38,15 @@ public class RemoteStoreRepositoryRegistrationHelper {
     public static final String REMOTE_STORE_SEGMENT_REPOSITORY_NAME_ATTRIBUTE_KEY = "remote_store.segment.repository";
     public static final String REMOTE_STORE_TRANSLOG_REPOSITORY_NAME_ATTRIBUTE_KEY = "remote_store.translog.repository";
     public static final String REMOTE_STORE_REPOSITORY_TYPE_ATTRIBUTE_KEY_FORMAT = "remote_store.repository.%s.type";
-    public static final String REMOTE_STORE_REPOSITORY_SETTINGS_ATTRIBUTE_KEY_FORMAT = "remote_store.repository.%s.settings";
+    public static final String REMOTE_STORE_REPOSITORY_SETTINGS_ATTRIBUTE_KEY_PREFIX = "remote_store.repository.%s.settings.";
+
+    private static Map<String, String> validateSettingsAttributesNonNull(DiscoveryNode node, String settingsAttributeKeyPrefix) {
+        return node.getAttributes()
+            .keySet()
+            .stream()
+            .filter(key -> key.startsWith(settingsAttributeKeyPrefix))
+            .collect(Collectors.toMap(key -> key, key -> validateAttributeNonNull(node, key)));
+    }
 
     private static String validateAttributeNonNull(DiscoveryNode node, String attributeKey) {
         String attributeValue = node.getAttributes().get(attributeKey);
@@ -63,37 +72,46 @@ public class RemoteStoreRepositoryRegistrationHelper {
             REMOTE_STORE_REPOSITORY_TYPE_ATTRIBUTE_KEY_FORMAT,
             segmentRepositoryName
         );
-        String segmentRepositorySettingsAttributeKey = String.format(
+        String segmentRepositorySettingsAttributeKeyPrefix = String.format(
             Locale.getDefault(),
-            REMOTE_STORE_REPOSITORY_SETTINGS_ATTRIBUTE_KEY_FORMAT,
+            REMOTE_STORE_REPOSITORY_SETTINGS_ATTRIBUTE_KEY_PREFIX,
             segmentRepositoryName
         );
+        List<String> segmentRepositorySettingsAttributeKeys = joiningNodeAttributes.keySet()
+            .stream()
+            .filter(key -> key.startsWith(segmentRepositorySettingsAttributeKeyPrefix))
+            .collect(Collectors.toList());
+
         String translogRepositoryName = joiningNodeAttributes.get(REMOTE_STORE_TRANSLOG_REPOSITORY_NAME_ATTRIBUTE_KEY);
         String translogRepositoryTypeAttributeKey = String.format(
             Locale.getDefault(),
             REMOTE_STORE_REPOSITORY_TYPE_ATTRIBUTE_KEY_FORMAT,
             translogRepositoryName
         );
-        String translogRepositorySettingsAttributeKey = String.format(
+        String translogRepositorySettingsAttributeKeyPrefix = String.format(
             Locale.getDefault(),
-            REMOTE_STORE_REPOSITORY_SETTINGS_ATTRIBUTE_KEY_FORMAT,
+            REMOTE_STORE_REPOSITORY_SETTINGS_ATTRIBUTE_KEY_PREFIX,
             translogRepositoryName
         );
+        List<String> translogRepositorySettingsAttributeKeys = joiningNodeAttributes.keySet()
+            .stream()
+            .filter(key -> key.startsWith(translogRepositorySettingsAttributeKeyPrefix))
+            .collect(Collectors.toList());
 
         boolean remoteStoreNode = joiningNodeAttributes.get(REMOTE_STORE_SEGMENT_REPOSITORY_NAME_ATTRIBUTE_KEY) != null
             || joiningNodeAttributes.get(segmentRepositoryTypeAttributeKey) != null
-            || joiningNodeAttributes.get(segmentRepositorySettingsAttributeKey) != null
+            || segmentRepositorySettingsAttributeKeys.size() != 0
             || joiningNodeAttributes.get(REMOTE_STORE_TRANSLOG_REPOSITORY_NAME_ATTRIBUTE_KEY) != null
             || joiningNodeAttributes.get(translogRepositoryTypeAttributeKey) != null
-            || joiningNodeAttributes.get(translogRepositorySettingsAttributeKey) != null;
+            || translogRepositorySettingsAttributeKeys.size() != 0;
 
         if (remoteStoreNode) {
             validateAttributeNonNull(node, REMOTE_STORE_SEGMENT_REPOSITORY_NAME_ATTRIBUTE_KEY);
             validateAttributeNonNull(node, segmentRepositoryTypeAttributeKey);
-            validateAttributeNonNull(node, segmentRepositorySettingsAttributeKey);
+            validateSettingsAttributesNonNull(node, segmentRepositorySettingsAttributeKeyPrefix);
             validateAttributeNonNull(node, REMOTE_STORE_TRANSLOG_REPOSITORY_NAME_ATTRIBUTE_KEY);
             validateAttributeNonNull(node, translogRepositoryTypeAttributeKey);
-            validateAttributeNonNull(node, translogRepositorySettingsAttributeKey);
+            validateSettingsAttributesNonNull(node, translogRepositorySettingsAttributeKeyPrefix);
         }
 
         return remoteStoreNode;
@@ -120,6 +138,15 @@ public class RemoteStoreRepositoryRegistrationHelper {
         }
     }
 
+    private static void compareSettingsAttributes(DiscoveryNode joiningNode, DiscoveryNode existingNode, String attributeKeyPrefix) {
+        List<String> existingNodeSettingsAttributeKeys = existingNode.getAttributes()
+            .keySet()
+            .stream()
+            .filter(key -> key.startsWith(attributeKeyPrefix))
+            .collect(Collectors.toList());
+        existingNodeSettingsAttributeKeys.stream().forEach(key -> compareAttribute(joiningNode, existingNode, key));
+    }
+
     /**
      * During node join request this method will validate if the joining node has the same remote store node
      * attributes as of the existing node in the cluster.
@@ -137,10 +164,10 @@ public class RemoteStoreRepositoryRegistrationHelper {
             existingNode,
             String.format(Locale.getDefault(), REMOTE_STORE_REPOSITORY_TYPE_ATTRIBUTE_KEY_FORMAT, segmentRepositoryName)
         );
-        compareAttribute(
+        compareSettingsAttributes(
             joiningNode,
             existingNode,
-            String.format(Locale.getDefault(), REMOTE_STORE_REPOSITORY_SETTINGS_ATTRIBUTE_KEY_FORMAT, segmentRepositoryName)
+            String.format(Locale.getDefault(), REMOTE_STORE_REPOSITORY_SETTINGS_ATTRIBUTE_KEY_PREFIX, segmentRepositoryName)
         );
         compareAttribute(joiningNode, existingNode, REMOTE_STORE_TRANSLOG_REPOSITORY_NAME_ATTRIBUTE_KEY);
         compareAttribute(
@@ -148,24 +175,22 @@ public class RemoteStoreRepositoryRegistrationHelper {
             existingNode,
             String.format(Locale.getDefault(), REMOTE_STORE_REPOSITORY_TYPE_ATTRIBUTE_KEY_FORMAT, translogRepositoryName)
         );
-        compareAttribute(
+        compareSettingsAttributes(
             joiningNode,
             existingNode,
-            String.format(Locale.getDefault(), REMOTE_STORE_REPOSITORY_SETTINGS_ATTRIBUTE_KEY_FORMAT, translogRepositoryName)
+            String.format(Locale.getDefault(), REMOTE_STORE_REPOSITORY_SETTINGS_ATTRIBUTE_KEY_PREFIX, translogRepositoryName)
         );
 
         return true;
     }
 
-    private static Settings buildSettings(String stringSettings) {
+    private static Settings buildSettings(DiscoveryNode node, String settingsAttributePrefix) {
         Settings.Builder settings = Settings.builder();
-
-        String[] stringKeyValue = stringSettings.split(",");
-        for (int i = 0; i < stringKeyValue.length; i++) {
-            String[] keyValue = stringKeyValue[i].split(":");
-            settings.put(keyValue[0].trim(), keyValue[1].trim());
-        }
-
+        node.getAttributes()
+            .entrySet()
+            .stream()
+            .filter(entry -> entry.getKey().startsWith(settingsAttributePrefix))
+            .forEach(entry -> settings.put(entry.getKey().replace(settingsAttributePrefix, ""), entry.getValue()));
         return settings.build();
     }
 
@@ -173,10 +198,9 @@ public class RemoteStoreRepositoryRegistrationHelper {
     // Visible For testing
     public static RepositoryMetadata buildRepositoryMetadata(DiscoveryNode node, String name) {
         String type = node.getAttributes().get(String.format(Locale.getDefault(), REMOTE_STORE_REPOSITORY_TYPE_ATTRIBUTE_KEY_FORMAT, name));
-        String settings = node.getAttributes()
-            .get(String.format(Locale.getDefault(), REMOTE_STORE_REPOSITORY_SETTINGS_ATTRIBUTE_KEY_FORMAT, name));
+        String settingsAttributePrefix = String.format(Locale.getDefault(), REMOTE_STORE_REPOSITORY_SETTINGS_ATTRIBUTE_KEY_PREFIX, name);
 
-        return new RepositoryMetadata(name, type, buildSettings(settings));
+        return new RepositoryMetadata(name, type, buildSettings(node, settingsAttributePrefix));
 
     }
 
