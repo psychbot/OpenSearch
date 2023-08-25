@@ -33,6 +33,7 @@
 package org.opensearch.cluster.node;
 
 import org.opensearch.Version;
+import org.opensearch.action.admin.cluster.remotestore.repository.RemoteStoreNode;
 import org.opensearch.common.UUIDs;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
@@ -456,6 +457,13 @@ public class DiscoveryNode implements Writeable, ToXContentFragment {
      */
     public boolean isSearchNode() {
         return roles.contains(DiscoveryNodeRole.SEARCH_ROLE);
+    }
+
+    public boolean isRemoteStoreNode() {
+        return this.getAttributes()
+            .keySet()
+            .stream()
+            .anyMatch(key -> key.startsWith(RemoteStoreNode.REMOTE_STORE_NODE_ATTRIBUTE_KEY_PREFIX));
     }
 
     /**

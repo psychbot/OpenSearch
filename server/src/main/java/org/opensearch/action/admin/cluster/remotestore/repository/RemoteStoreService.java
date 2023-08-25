@@ -17,7 +17,6 @@ import org.opensearch.cluster.metadata.RepositoriesMetadata;
 import org.opensearch.cluster.metadata.RepositoryMetadata;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.common.settings.Setting;
-import org.opensearch.common.settings.Settings;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.repositories.RepositoriesService;
 import org.opensearch.repositories.Repository;
@@ -27,42 +26,47 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 
 /**
  * Contains all the method needed for a remote store node lifecycle.
  */
 public class RemoteStoreService {
 
-    private static final Logger logger = LogManager.getLogger(RemoteStoreService.class);
     private final Supplier<RepositoriesService> repositoriesService;
-    private static final String REMOTE_STORE_NODE_ATTRIBUTE_KEY_PREFIX = "remote_store";
-    public static final String REMOTE_STORE_SEGMENT_REPOSITORY_NAME_ATTRIBUTE_KEY = "remote_store.segment.repository";
-    public static final String REMOTE_STORE_TRANSLOG_REPOSITORY_NAME_ATTRIBUTE_KEY = "remote_store.translog.repository";
-    public static final String REMOTE_STORE_REPOSITORY_TYPE_ATTRIBUTE_KEY_FORMAT = "remote_store.repository.%s.type";
-    public static final String REMOTE_STORE_REPOSITORY_SETTINGS_ATTRIBUTE_KEY_PREFIX = "remote_store.repository.%s.settings.";
-    public static final Setting<String> REMOTE_STORE_MIGRATION_SETTING = Setting.simpleString("remote_store.migration",
+
+    public static final Setting<String> REMOTE_STORE_MIGRATION_SETTING = Setting.simpleString(
+        "remote_store.migration",
         MigrationTypes.NOT_MIGRATING.value,
         MigrationTypes::validate,
         Setting.Property.Dynamic,
-        Setting.Property.NodeScope);
+        Setting.Property.NodeScope
+    );
+
+    private static final Logger logger = LogManager.getLogger(RemoteStoreService.class);
 
     public enum MigrationTypes {
         NOT_MIGRATING("not_migrating"),
         MIGRATING_TO_REMOTE_STORE("migrating_to_remote_store"),
         MIGRATING_TO_HOT("migrating_to_hot");
+
         public static MigrationTypes validate(String migrationType) {
             try {
                 return MigrationTypes.valueOf(migrationType.toUpperCase(Locale.ROOT));
             } catch (IllegalArgumentException e) {
-                throw new IllegalArgumentException("[" + migrationType + "] migration type is not supported. " +
-                    "Supported migration types are [" + MigrationTypes.values().toString() + "]");
+                throw new IllegalArgumentException(
+                    "["
+                        + migrationType
+                        + "] migration type is not supported. "
+                        + "Supported migration types are ["
+                        + MigrationTypes.values().toString()
+                        + "]"
+                );
             }
         }
 
         public final String value;
+
         MigrationTypes(String value) {
             this.value = value;
         }
@@ -70,54 +74,6 @@ public class RemoteStoreService {
 
     public RemoteStoreService(Supplier<RepositoriesService> repositoriesService) {
         this.repositoriesService = repositoriesService;
-    }
-
-    private static String validateAttributeNonNull(DiscoveryNode node, String attributeKey) {
-        String attributeValue = node.getAttributes().get(attributeKey);
-        if (attributeValue == null || attributeValue.isEmpty()) {
-            throw new IllegalStateException("joining node [" + node + "] doesn't have the node attribute [" + attributeKey + "].");
-        }
-
-        return attributeValue;
-    }
-
-    private static Map<String, String> validateSettingsAttributesNonNull(DiscoveryNode node, String settingsAttributeKeyPrefix) {
-        return node.getAttributes()
-            .keySet()
-            .stream()
-            .filter(key -> key.startsWith(settingsAttributeKeyPrefix))
-            .collect(Collectors.toMap(key -> key.replace(settingsAttributeKeyPrefix, ""), key -> validateAttributeNonNull(node, key)));
-    }
-
-    // TODO: Add logic to mark these repository as System Repository once thats merged.
-    // Visible for testing
-    public static RepositoryMetadata buildRepositoryMetadata(DiscoveryNode node, String name) {
-        String type = validateAttributeNonNull(
-            node,
-            String.format(Locale.getDefault(), REMOTE_STORE_REPOSITORY_TYPE_ATTRIBUTE_KEY_FORMAT, name)
-        );
-        Map<String, String> settingsMap = validateSettingsAttributesNonNull(
-            node,
-            String.format(Locale.getDefault(), REMOTE_STORE_REPOSITORY_SETTINGS_ATTRIBUTE_KEY_PREFIX, name)
-        );
-
-        Settings.Builder settings = Settings.builder();
-        settingsMap.entrySet().forEach(entry -> settings.put(entry.getKey(), entry.getValue()));
-
-        return new RepositoryMetadata(name, type, settings.build());
-    }
-
-    private static RepositoriesMetadata buildRepositoriesMetadata(DiscoveryNode node) {
-        String segmentRepositoryName = node.getAttributes().get(REMOTE_STORE_SEGMENT_REPOSITORY_NAME_ATTRIBUTE_KEY);
-        String translogRepositoryName = node.getAttributes().get(REMOTE_STORE_TRANSLOG_REPOSITORY_NAME_ATTRIBUTE_KEY);
-        if (segmentRepositoryName.equals(translogRepositoryName)) {
-            return new RepositoriesMetadata(Collections.singletonList(buildRepositoryMetadata(node, segmentRepositoryName)));
-        } else {
-            List<RepositoryMetadata> repositoryMetadataList = new ArrayList<>();
-            repositoryMetadataList.add(buildRepositoryMetadata(node, segmentRepositoryName));
-            repositoryMetadataList.add(buildRepositoryMetadata(node, translogRepositoryName));
-            return new RepositoriesMetadata(repositoryMetadataList);
-        }
     }
 
     private void verifyRepository(RepositoryMetadata repositoryMetadata) {
@@ -148,7 +104,6 @@ public class RemoteStoreService {
 
     private ClusterState createRepository(RepositoryMetadata newRepositoryMetadata, ClusterState currentState) {
         RepositoriesService.validate(newRepositoryMetadata.name());
-
         Metadata metadata = currentState.metadata();
         Metadata.Builder mdBuilder = Metadata.builder(currentState.metadata());
         RepositoriesMetadata repositories = metadata.custom(RepositoriesMetadata.TYPE);
@@ -162,7 +117,6 @@ public class RemoteStoreService {
             repositories = new RepositoriesMetadata(Collections.singletonList(newRepositoryMetadata));
         } else {
             List<RepositoryMetadata> repositoriesMetadata = new ArrayList<>(repositories.repositories().size() + 1);
-
             for (RepositoryMetadata repositoryMetadata : repositories.repositories()) {
                 if (repositoryMetadata.name().equals(newRepositoryMetadata.name())) {
                     if (newRepositoryMetadata.equalsIgnoreGenerations(repositoryMetadata)) {
@@ -234,8 +188,8 @@ public class RemoteStoreService {
             return currentState;
         }
         ClusterState.Builder newState = ClusterState.builder(currentState);
-        if (isRemoteStoreNode(existingNodes.get(0))) {
-            RemoteStoreNode existingRemoteStoreNode = createRemoteStoreNode(existingNodes.get(0));
+        if (existingNodes.get(0).isRemoteStoreNode()) {
+            RemoteStoreNode existingRemoteStoreNode = new RemoteStoreNode(existingNodes.get(0));
             if (joiningRemoteStoreNode.equals(existingRemoteStoreNode)) {
                 newState = ClusterState.builder(createOrVerifyRepository(joiningRemoteStoreNode.getRepositoriesMetadata(), currentState));
             }
@@ -245,36 +199,5 @@ public class RemoteStoreService {
             );
         }
         return newState.build();
-    }
-
-    public static RemoteStoreNode createRemoteStoreNode(DiscoveryNode node) {
-        return new RemoteStoreNode(node, buildRepositoriesMetadata(node));
-    }
-
-    public static boolean isRemoteStoreNode(DiscoveryNode node) {
-        if (node == null) {
-            return false;
-        }
-
-        return node.getAttributes().keySet().stream().anyMatch(key -> key.startsWith(REMOTE_STORE_NODE_ATTRIBUTE_KEY_PREFIX));
-    }
-
-    public static boolean ensureNodeCompatibility(DiscoveryNode joiningNode, DiscoveryNode existingNode) {
-        if (isRemoteStoreNode(joiningNode)) {
-            if (isRemoteStoreNode(existingNode)) {
-                RemoteStoreNode joiningRemoteStoreNode = RemoteStoreService.createRemoteStoreNode(joiningNode);
-                RemoteStoreNode existingRemoteStoreNode = RemoteStoreService.createRemoteStoreNode(existingNode);
-                return existingRemoteStoreNode.equals(joiningRemoteStoreNode);
-            } else {
-                throw new IllegalStateException(
-                    "a remote store node [" + joiningNode + "] is trying to join a non " + "remote store cluster."
-                );
-            }
-        } else {
-            if (isRemoteStoreNode(existingNode)) {
-                throw new IllegalStateException("a non remote store node [" + joiningNode + "] is trying to join a remote store cluster.");
-            }
-        }
-        return false;
     }
 }

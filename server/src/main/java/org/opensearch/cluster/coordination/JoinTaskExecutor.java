@@ -62,7 +62,6 @@ import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
 import static org.opensearch.action.admin.cluster.remotestore.repository.RemoteStoreService.REMOTE_STORE_MIGRATION_SETTING;
-import static org.opensearch.action.admin.cluster.remotestore.repository.RemoteStoreService.isRemoteStoreNode;
 import static org.opensearch.cluster.decommission.DecommissionHelper.nodeCommissioned;
 import static org.opensearch.gateway.GatewayService.STATE_NOT_RECOVERED_BLOCK;
 
@@ -184,7 +183,7 @@ public class JoinTaskExecutor implements ClusterStateTaskExecutor<JoinTaskExecut
         // processing any joins
         Map<String, String> joiniedNodeNameIds = new HashMap<>();
         for (final Task joinTask : joiningNodes) {
-            boolean isRemoteStoreNode = remoteStoreService.isRemoteStoreNode(joinTask.node());
+            boolean isRemoteStoreNode = joinTask.node().isRemoteStoreNode();
             if (joinTask.isBecomeClusterManagerTask() || joinTask.isFinishElectionTask()) {
                 // noop
             } else if (currentNodes.nodeExistsWithSameRoles(joinTask.node())) {
@@ -195,15 +194,13 @@ public class JoinTaskExecutor implements ClusterStateTaskExecutor<JoinTaskExecut
                  * {@link org.opensearch.gateway.GatewayMetaState#prepareInitialClusterState(TransportService, ClusterService, ClusterState)} **/
                 final DiscoveryNode node = joinTask.node();
                 if (isRemoteStoreNode) {
-                    RemoteStoreNode remoteStoreNode = remoteStoreService.createRemoteStoreNode(node);
+                    RemoteStoreNode remoteStoreNode = new RemoteStoreNode(node);
                     newState = ClusterState.builder(remoteStoreService.joinCluster(remoteStoreNode, currentState));
                 }
             } else {
                 final DiscoveryNode node = joinTask.node();
                 if (isRemoteStoreNode) {
-                    newState = ClusterState.builder(
-                        remoteStoreService.joinCluster(remoteStoreService.createRemoteStoreNode(node), currentState)
-                    );
+                    newState = ClusterState.builder(remoteStoreService.joinCluster(new RemoteStoreNode(node), currentState));
                 }
                 try {
                     if (enforceMajorVersion) {
@@ -477,8 +474,30 @@ public class JoinTaskExecutor implements ClusterStateTaskExecutor<JoinTaskExecut
          * TODO: The below check is valid till we support migration, once we start supporting migration a remote
          *       store node will be able to join a non remote store cluster and vice versa. #7986
          */
-        if(RemoteStoreService.MigrationTypes.NOT_MIGRATING.equals(REMOTE_STORE_MIGRATION_SETTING.get(currentState.metadata().settings()))) {
-            RemoteStoreService.ensureNodeCompatibility(joiningNode, existingNodes.get(0));
+        if (RemoteStoreService.MigrationTypes.NOT_MIGRATING.equals(
+            REMOTE_STORE_MIGRATION_SETTING.get(currentState.metadata().settings())
+        )) {
+            if (joiningNode.isRemoteStoreNode()) {
+                if (existingNodes.get(0).isRemoteStoreNode()) {
+                    RemoteStoreNode joiningRemoteStoreNode = new RemoteStoreNode(joiningNode);
+                    RemoteStoreNode existingRemoteStoreNode = new RemoteStoreNode(existingNodes.get(0));
+                    if (existingRemoteStoreNode.equals(joiningRemoteStoreNode) == false) {
+                        throw new IllegalStateException(
+                            "a remote store node [" + joiningNode + "] is trying to join a non " + "remote store cluster."
+                        );
+                    }
+                } else {
+                    throw new IllegalStateException(
+                        "a remote store node [" + joiningNode + "] is trying to join a non " + "remote store cluster."
+                    );
+                }
+            } else {
+                if (existingNodes.get(0).isRemoteStoreNode()) {
+                    throw new IllegalStateException(
+                        "a non remote store node [" + joiningNode + "] is trying to join a remote store cluster."
+                    );
+                }
+            }
         }
     }
 
