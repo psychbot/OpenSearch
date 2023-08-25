@@ -63,7 +63,6 @@ import java.util.stream.Collectors;
 
 import static org.opensearch.cluster.decommission.DecommissionHelper.nodeCommissioned;
 import static org.opensearch.gateway.GatewayService.STATE_NOT_RECOVERED_BLOCK;
-import static org.opensearch.action.admin.cluster.remotestore.repository.RemoteStoreService.REMOTE_STORE_MIGRATION_SETTING;
 
 /**
  * Main executor for Nodes joining the OpenSearch cluster
@@ -490,9 +489,7 @@ public class JoinTaskExecutor implements ClusterStateTaskExecutor<JoinTaskExecut
             }
         } else {
             if (existingNodes.get(0).isRemoteStoreNode()) {
-                throw new IllegalStateException(
-                    "a non remote store node [" + joiningNode + "] is trying to join a remote store cluster."
-                );
+                throw new IllegalStateException("a non remote store node [" + joiningNode + "] is trying to join a remote store cluster.");
             }
         }
     }

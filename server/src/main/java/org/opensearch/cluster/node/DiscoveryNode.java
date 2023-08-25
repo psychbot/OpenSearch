@@ -274,8 +274,17 @@ public class DiscoveryNode implements Writeable, ToXContentFragment {
     }
 
     public DiscoveryNode(DiscoveryNode node) {
-        this(node.nodeName, node.nodeId, node.ephemeralId, node.hostName, node.hostAddress, node.address, node.attributes,
-            node.roles, node.version);
+        this(
+            node.nodeName,
+            node.nodeId,
+            node.ephemeralId,
+            node.hostName,
+            node.hostAddress,
+            node.address,
+            node.attributes,
+            node.roles,
+            node.version
+        );
     }
 
     /** Creates a DiscoveryNode representing the local node. */
