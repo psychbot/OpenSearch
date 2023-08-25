@@ -273,6 +273,11 @@ public class DiscoveryNode implements Writeable, ToXContentFragment {
         this.roles = Collections.unmodifiableSortedSet(new TreeSet<>(roles));
     }
 
+    public DiscoveryNode(DiscoveryNode node) {
+        this(node.nodeName, node.nodeId, node.ephemeralId, node.hostName, node.hostAddress, node.address, node.attributes,
+            node.roles, node.version);
+    }
+
     /** Creates a DiscoveryNode representing the local node. */
     public static DiscoveryNode createLocal(Settings settings, TransportAddress publishAddress, String nodeId) {
         Map<String, String> attributes = Node.NODE_ATTRIBUTES.getAsMap(settings);

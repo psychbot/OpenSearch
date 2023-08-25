@@ -24,7 +24,7 @@ import java.util.stream.Collectors;
 /**
  * Contains all the parameters related to a remote store node.
  */
-public class RemoteStoreNode {
+public class RemoteStoreNode extends DiscoveryNode {
 
     private final DiscoveryNode node;
     private final RepositoriesMetadata repositoriesMetadata;
@@ -35,6 +35,7 @@ public class RemoteStoreNode {
     public static final String REMOTE_STORE_REPOSITORY_SETTINGS_ATTRIBUTE_KEY_PREFIX = "remote_store.repository.%s.settings.";
 
     public RemoteStoreNode(DiscoveryNode node) {
+        super(node.getName(), node.getId(), node.getAddress(), node.getAttributes(), node.getRoles(), node.getVersion());
         this.node = node;
         this.repositoriesMetadata = buildRepositoriesMetadata();
     }
