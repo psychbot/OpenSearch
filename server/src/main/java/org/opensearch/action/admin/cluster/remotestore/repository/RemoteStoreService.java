@@ -16,6 +16,7 @@ import org.opensearch.cluster.metadata.Metadata;
 import org.opensearch.cluster.metadata.RepositoriesMetadata;
 import org.opensearch.cluster.metadata.RepositoryMetadata;
 import org.opensearch.cluster.node.DiscoveryNode;
+import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.repositories.RepositoriesService;
@@ -42,6 +43,30 @@ public class RemoteStoreService {
     public static final String REMOTE_STORE_TRANSLOG_REPOSITORY_NAME_ATTRIBUTE_KEY = "remote_store.translog.repository";
     public static final String REMOTE_STORE_REPOSITORY_TYPE_ATTRIBUTE_KEY_FORMAT = "remote_store.repository.%s.type";
     public static final String REMOTE_STORE_REPOSITORY_SETTINGS_ATTRIBUTE_KEY_PREFIX = "remote_store.repository.%s.settings.";
+    public static final Setting<String> REMOTE_STORE_MIGRATION_SETTING = Setting.simpleString("remote_store.migration",
+        MigrationTypes.NOT_MIGRATING.value,
+        MigrationTypes::validate,
+        Setting.Property.Dynamic,
+        Setting.Property.NodeScope);
+
+    public enum MigrationTypes {
+        NOT_MIGRATING("not_migrating"),
+        MIGRATING_TO_REMOTE_STORE("migrating_to_remote_store"),
+        MIGRATING_TO_HOT("migrating_to_hot");
+        public static MigrationTypes validate(String migrationType) {
+            try {
+                return MigrationTypes.valueOf(migrationType.toUpperCase(Locale.ROOT));
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("[" + migrationType + "] migration type is not supported. " +
+                    "Supported migration types are [" + MigrationTypes.values().toString() + "]");
+            }
+        }
+
+        public final String value;
+        MigrationTypes(String value) {
+            this.value = value;
+        }
+    }
 
     public RemoteStoreService(Supplier<RepositoriesService> repositoriesService) {
         this.repositoriesService = repositoriesService;
