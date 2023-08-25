@@ -35,6 +35,7 @@ import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
+import org.opensearch.action.admin.cluster.remotestore.repository.RemoteStoreService;
 import org.opensearch.cluster.ClusterChangedEvent;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.ClusterState;
@@ -85,7 +86,6 @@ import org.opensearch.discovery.SeedHostsProvider;
 import org.opensearch.discovery.SeedHostsResolver;
 import org.opensearch.monitor.NodeHealthService;
 import org.opensearch.monitor.StatusInfo;
-import org.opensearch.repositories.RepositoriesService;
 import org.opensearch.threadpool.Scheduler;
 import org.opensearch.threadpool.ThreadPool.Names;
 import org.opensearch.transport.TransportService;
@@ -203,7 +203,7 @@ public class Coordinator extends AbstractLifecycleComponent implements Discovery
         RerouteService rerouteService,
         ElectionStrategy electionStrategy,
         NodeHealthService nodeHealthService,
-        RepositoriesService repositoriesService
+        RemoteStoreService remoteStoreService
     ) {
         this.settings = settings;
         this.transportService = transportService;
@@ -226,7 +226,7 @@ public class Coordinator extends AbstractLifecycleComponent implements Discovery
             nodeHealthService,
             this::onNodeCommissionStatusChange,
             namedWriteableRegistry,
-            repositoriesService
+            remoteStoreService
         );
         this.persistedStateSupplier = persistedStateSupplier;
         this.noClusterManagerBlockService = new NoClusterManagerBlockService(settings, clusterSettings);

@@ -39,6 +39,7 @@ import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.opensearch.OpenSearchException;
 import org.opensearch.Version;
+import org.opensearch.action.admin.cluster.remotestore.repository.RemoteStoreService;
 import org.opensearch.cluster.ClusterModule;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.ClusterStateTaskListener;
@@ -58,6 +59,7 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.cluster.service.FakeThreadPoolClusterManagerService;
 import org.opensearch.common.Nullable;
 import org.opensearch.common.Randomness;
+import org.opensearch.common.SetOnce;
 import org.opensearch.common.UUIDs;
 import org.opensearch.common.collect.Tuple;
 import org.opensearch.common.io.stream.BytesStreamOutput;
@@ -1035,6 +1037,7 @@ public class AbstractCoordinatorTestCase extends OpenSearchTestCase {
             private DisruptableMockTransport mockTransport;
             private NodeHealthService nodeHealthService;
             private RepositoriesService repositoriesService;
+            private RemoteStoreService remoteStoreService;
             List<BiConsumer<DiscoveryNode, ClusterState>> extraJoinValidators = new ArrayList<>();
 
             ClusterNode(int nodeIndex, boolean clusterManagerEligible, Settings nodeSettings, NodeHealthService nodeHealthService) {
@@ -1135,6 +1138,7 @@ public class AbstractCoordinatorTestCase extends OpenSearchTestCase {
                     Collections.emptyMap(),
                     threadPool
                 );
+                remoteStoreService = new RemoteStoreService(new SetOnce<>(repositoriesService)::get);
                 final Collection<BiConsumer<DiscoveryNode, ClusterState>> onJoinValidators = Collections.singletonList(
                     (dn, cs) -> extraJoinValidators.forEach(validator -> validator.accept(dn, cs))
                 );
@@ -1155,7 +1159,7 @@ public class AbstractCoordinatorTestCase extends OpenSearchTestCase {
                     (s, p, r) -> {},
                     getElectionStrategy(),
                     nodeHealthService,
-                    repositoriesService
+                    remoteStoreService
                 );
                 clusterManagerService.setClusterStatePublisher(coordinator);
                 final GatewayService gatewayService = new GatewayService(

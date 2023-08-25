@@ -34,6 +34,7 @@ package org.opensearch.cluster.coordination;
 import org.apache.logging.log4j.Level;
 import org.opensearch.Version;
 import org.opensearch.action.ActionListenerResponseHandler;
+import org.opensearch.action.admin.cluster.remotestore.repository.RemoteStoreService;
 import org.opensearch.action.support.PlainActionFuture;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.ClusterState;
@@ -46,7 +47,6 @@ import org.opensearch.core.common.bytes.BytesReference;
 import org.opensearch.core.common.io.stream.NamedWriteableRegistry;
 import org.opensearch.core.transport.TransportResponse;
 import org.opensearch.monitor.StatusInfo;
-import org.opensearch.repositories.RepositoriesService;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.test.transport.CapturingTransport;
 import org.opensearch.test.transport.CapturingTransport.CapturedRequest;
@@ -111,7 +111,7 @@ public class JoinHelperTests extends OpenSearchTestCase {
             () -> new StatusInfo(HEALTHY, "info"),
             nodeCommissioned -> {},
             namedWriteableRegistry,
-            Mockito.mock(RepositoriesService.class)
+            Mockito.mock(RemoteStoreService.class)
         );
         transportService.start();
 
@@ -297,7 +297,7 @@ public class JoinHelperTests extends OpenSearchTestCase {
             () -> nodeHealthServiceStatus.get(),
             nodeCommissioned -> {},
             namedWriteableRegistry,
-            Mockito.mock(RepositoriesService.class)
+            Mockito.mock(RemoteStoreService.class)
         );
         transportService.start();
 
@@ -497,7 +497,7 @@ public class JoinHelperTests extends OpenSearchTestCase {
             null,
             nodeCommissioned -> {},
             namedWriteableRegistry,
-            Mockito.mock(RepositoriesService.class)
+            Mockito.mock(RemoteStoreService.class)
         ); // registers
            // request
            // handler

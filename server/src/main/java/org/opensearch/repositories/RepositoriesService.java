@@ -575,6 +575,13 @@ public class RepositoriesService extends AbstractLifecycleComponent implements C
     }
 
     /**
+     * Creates repository holder. This method starts the non-internal repository
+     */
+    public Repository createRepository(RepositoryMetadata repositoryMetadata) {
+        return this.createRepository(repositoryMetadata, typesRegistry);
+    }
+
+    /**
      * Creates repository holder. This method starts the repository
      */
     public Repository createRepository(RepositoryMetadata repositoryMetadata, Map<String, Repository.Factory> factories) {
@@ -697,13 +704,5 @@ public class RepositoriesService extends AbstractLifecycleComponent implements C
         repos.addAll(internalRepositories.values());
         repos.addAll(repositories.values());
         IOUtils.close(repos);
-    }
-
-    public Map<String, Repository.Factory> getTypesRegistry() {
-        return this.typesRegistry;
-    }
-
-    public void updateRepositories(String repoitoryName, Repository repository) {
-        repositories.putIfAbsent(repoitoryName, repository);
     }
 }

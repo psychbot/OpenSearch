@@ -33,6 +33,7 @@ package org.opensearch.cluster.coordination;
 
 import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.opensearch.Version;
+import org.opensearch.action.admin.cluster.remotestore.repository.RemoteStoreService;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.OpenSearchAllocationTestCase;
@@ -59,7 +60,6 @@ import org.opensearch.core.transport.TransportResponse;
 import org.opensearch.monitor.NodeHealthService;
 import org.opensearch.monitor.StatusInfo;
 import org.opensearch.node.Node;
-import org.opensearch.repositories.RepositoriesService;
 import org.opensearch.test.ClusterServiceUtils;
 import org.opensearch.test.OpenSearchTestCase;
 import org.opensearch.test.transport.CapturingTransport;
@@ -264,7 +264,7 @@ public class NodeJoinTests extends OpenSearchTestCase {
             (s, p, r) -> {},
             ElectionStrategy.DEFAULT_INSTANCE,
             nodeHealthService,
-            Mockito.mock(RepositoriesService.class)
+            Mockito.mock(RemoteStoreService.class)
         );
         transportService.start();
         transportService.acceptIncomingRequests();

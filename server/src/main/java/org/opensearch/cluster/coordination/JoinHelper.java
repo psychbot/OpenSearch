@@ -37,6 +37,7 @@ import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.opensearch.Version;
 import org.opensearch.action.ActionListenerResponseHandler;
+import org.opensearch.action.admin.cluster.remotestore.repository.RemoteStoreService;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.ClusterStateTaskConfig;
 import org.opensearch.cluster.ClusterStateTaskListener;
@@ -61,7 +62,6 @@ import org.opensearch.core.transport.TransportResponse;
 import org.opensearch.core.transport.TransportResponse.Empty;
 import org.opensearch.monitor.NodeHealthService;
 import org.opensearch.monitor.StatusInfo;
-import org.opensearch.repositories.RepositoriesService;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.threadpool.ThreadPool.Names;
 import org.opensearch.transport.BytesTransportRequest;
@@ -145,7 +145,7 @@ public class JoinHelper {
         NodeHealthService nodeHealthService,
         Consumer<Boolean> nodeCommissioned,
         NamedWriteableRegistry namedWriteableRegistry,
-        RepositoriesService repositoriesService
+        RemoteStoreService remoteStoreService
     ) {
         this.clusterManagerService = clusterManagerService;
         this.transportService = transportService;
@@ -159,7 +159,7 @@ public class JoinHelper {
             allocationService,
             logger,
             rerouteService,
-            repositoriesService
+            remoteStoreService
         ) {
 
             private final long term = currentTermSupplier.getAsLong();

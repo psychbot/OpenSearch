@@ -33,6 +33,8 @@ package org.opensearch.cluster.coordination;
 
 import org.apache.logging.log4j.Logger;
 import org.opensearch.Version;
+import org.opensearch.action.admin.cluster.remotestore.repository.RemoteStoreNode;
+import org.opensearch.action.admin.cluster.remotestore.repository.RemoteStoreService;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.ClusterStateTaskExecutor;
 import org.opensearch.cluster.NotClusterManagerException;
@@ -48,7 +50,6 @@ import org.opensearch.common.Priority;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.persistent.PersistentTasksCustomMetadata;
-import org.opensearch.repositories.RepositoriesService;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -60,9 +61,7 @@ import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
-import static org.opensearch.action.admin.cluster.remotestore.repository.RemoteStoreRepositoryRegistrationHelper.compareRemoteStoreNodeAttributes;
-import static org.opensearch.action.admin.cluster.remotestore.repository.RemoteStoreRepositoryRegistrationHelper.isRemoteStoreNode;
-import static org.opensearch.action.admin.cluster.remotestore.repository.RemoteStoreRepositoryRegistrationHelper.validateOrAddRemoteStoreRepositories;
+import static org.opensearch.action.admin.cluster.remotestore.repository.RemoteStoreService.isRemoteStoreNode;
 import static org.opensearch.cluster.decommission.DecommissionHelper.nodeCommissioned;
 import static org.opensearch.gateway.GatewayService.STATE_NOT_RECOVERED_BLOCK;
 
@@ -78,7 +77,7 @@ public class JoinTaskExecutor implements ClusterStateTaskExecutor<JoinTaskExecut
     private final Logger logger;
     private final RerouteService rerouteService;
 
-    private final RepositoriesService repositoriesService;
+    private final RemoteStoreService remoteStoreService;
 
     /**
      * Task for the join task executor.
@@ -137,12 +136,12 @@ public class JoinTaskExecutor implements ClusterStateTaskExecutor<JoinTaskExecut
         AllocationService allocationService,
         Logger logger,
         RerouteService rerouteService,
-        RepositoriesService repositoriesService
+        RemoteStoreService remoteStoreService
     ) {
         this.allocationService = allocationService;
         this.logger = logger;
         this.rerouteService = rerouteService;
-        this.repositoriesService = repositoriesService;
+        this.remoteStoreService = remoteStoreService;
     }
 
     @Override
@@ -184,6 +183,7 @@ public class JoinTaskExecutor implements ClusterStateTaskExecutor<JoinTaskExecut
         // processing any joins
         Map<String, String> joiniedNodeNameIds = new HashMap<>();
         for (final Task joinTask : joiningNodes) {
+            boolean isRemoteStoreNode = remoteStoreService.isRemoteStoreNode(joinTask.node());
             if (joinTask.isBecomeClusterManagerTask() || joinTask.isFinishElectionTask()) {
                 // noop
             } else if (currentNodes.nodeExistsWithSameRoles(joinTask.node())) {
@@ -192,10 +192,18 @@ public class JoinTaskExecutor implements ClusterStateTaskExecutor<JoinTaskExecut
                 /** Validate/Add logic is invoked here as elect leader task can have same node present in join task
                  * as well as current node. See
                  * {@link org.opensearch.gateway.GatewayMetaState#prepareInitialClusterState(TransportService, ClusterService, ClusterState)} **/
-                newState = ClusterState.builder(validateOrAddRemoteStoreRepositories(joinTask, newState.build(), repositoriesService));
+                final DiscoveryNode node = joinTask.node();
+                if (isRemoteStoreNode) {
+                    RemoteStoreNode remoteStoreNode = remoteStoreService.createRemoteStoreNode(node);
+                    newState = ClusterState.builder(remoteStoreService.joinCluster(remoteStoreNode, currentState));
+                }
             } else {
                 final DiscoveryNode node = joinTask.node();
-                newState = ClusterState.builder(validateOrAddRemoteStoreRepositories(joinTask, newState.build(), repositoriesService));
+                if (isRemoteStoreNode) {
+                    newState = ClusterState.builder(
+                        remoteStoreService.joinCluster(remoteStoreService.createRemoteStoreNode(node), currentState)
+                    );
+                }
                 try {
                     if (enforceMajorVersion) {
                         ensureMajorVersionBarrier(node.getVersion(), minClusterNodeVersion);
@@ -208,7 +216,9 @@ public class JoinTaskExecutor implements ClusterStateTaskExecutor<JoinTaskExecut
                     // would guarantee that a decommissioned node would never be able to join the cluster and ensures correctness
                     ensureNodeCommissioned(node, currentState.metadata());
 
-                    ensureRemoteStoreNodesCompatibility(node, currentState);
+                    if (isRemoteStoreNode) {
+                        ensureRemoteStoreNodesCompatibility(node, currentState);
+                    }
                     nodesBuilder.add(node);
                     nodesChanged = true;
                     minClusterNodeVersion = Version.min(minClusterNodeVersion, node.getVersion());
@@ -458,7 +468,7 @@ public class JoinTaskExecutor implements ClusterStateTaskExecutor<JoinTaskExecut
          * If there are no node in the cluster state we will No op the compatibility check as at this point we
          * cannot determine if this is a remote store cluster or non-remote store cluster.
          */
-        if (existingNodes.size() == 0) {
+        if (existingNodes.isEmpty()) {
             return;
         }
 
@@ -466,20 +476,7 @@ public class JoinTaskExecutor implements ClusterStateTaskExecutor<JoinTaskExecut
          * TODO: The below check is valid till we support migration, once we start supporting migration a remote
          *       store node will be able to join a non remote store cluster and vice versa. #7986
          */
-        if (isRemoteStoreNode(joiningNode)) {
-            if (isRemoteStoreNode(existingNodes.get(0))) {
-                DiscoveryNode existingNode = existingNodes.get(0);
-                compareRemoteStoreNodeAttributes(joiningNode, existingNode);
-            } else {
-                throw new IllegalStateException(
-                    "a remote store node [" + joiningNode + "] is trying to join a non " + "remote store cluster."
-                );
-            }
-        } else {
-            if (isRemoteStoreNode(existingNodes.get(0))) {
-                throw new IllegalStateException("a non remote store node [" + joiningNode + "] is trying to join a remote store cluster.");
-            }
-        }
+        RemoteStoreService.ensureNodeCompatibility(joiningNode, existingNodes.get(0));
     }
 
     public static Collection<BiConsumer<DiscoveryNode, ClusterState>> addBuiltInJoinValidators(

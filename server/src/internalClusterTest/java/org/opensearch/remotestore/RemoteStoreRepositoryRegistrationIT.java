@@ -20,7 +20,7 @@ import org.opensearch.test.transport.MockTransportService;
 import java.util.Arrays;
 import java.util.Collection;
 
-import static org.opensearch.action.admin.cluster.remotestore.repository.RemoteStoreRepositoryRegistrationHelper.buildRepositoryMetadata;
+import static org.opensearch.action.admin.cluster.remotestore.repository.RemoteStoreService.buildRepositoryMetadata;
 
 @OpenSearchIntegTestCase.ClusterScope(scope = OpenSearchIntegTestCase.Scope.SUITE, numDataNodes = 0)
 public class RemoteStoreRepositoryRegistrationIT extends RemoteStoreBaseIntegTestCase {
@@ -64,10 +64,17 @@ public class RemoteStoreRepositoryRegistrationIT extends RemoteStoreBaseIntegTes
         assertRemoteStoreRepositoryOnAllNodes();
     }
 
-    public void testMultiNodeClusterRepositoryRegistrationWithMultipleMasters() {
+    public void testMultiNodeClusterOnlyDataRepositoryRegistration() {
         Settings clusterSettings = remoteStoreNodeAttributes(REPOSITORY_NAME, REPOSITORY_2_NAME);
-        internalCluster().startClusterManagerOnlyNodes(3, clusterSettings);
         internalCluster().startNodes(3, clusterSettings);
+        ensureStableCluster(3);
+
+        assertRemoteStoreRepositoryOnAllNodes();
+    }
+
+    public void testMultiNodeClusterRepositoryRegistrationWithMultipleMasters() {
+        internalCluster().startClusterManagerOnlyNodes(3);
+        internalCluster().startNodes(3);
         ensureStableCluster(6);
 
         assertRemoteStoreRepositoryOnAllNodes();

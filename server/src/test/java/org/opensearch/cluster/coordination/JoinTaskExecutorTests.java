@@ -33,6 +33,7 @@ package org.opensearch.cluster.coordination;
 
 import org.opensearch.LegacyESVersion;
 import org.opensearch.Version;
+import org.opensearch.action.admin.cluster.remotestore.repository.RemoteStoreService;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.ClusterStateTaskExecutor;
@@ -64,11 +65,11 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-import static org.opensearch.action.admin.cluster.remotestore.repository.RemoteStoreRepositoryRegistrationHelper.REMOTE_STORE_REPOSITORY_SETTINGS_ATTRIBUTE_KEY_PREFIX;
-import static org.opensearch.action.admin.cluster.remotestore.repository.RemoteStoreRepositoryRegistrationHelper.REMOTE_STORE_REPOSITORY_TYPE_ATTRIBUTE_KEY_FORMAT;
-import static org.opensearch.action.admin.cluster.remotestore.repository.RemoteStoreRepositoryRegistrationHelper.REMOTE_STORE_SEGMENT_REPOSITORY_NAME_ATTRIBUTE_KEY;
-import static org.opensearch.action.admin.cluster.remotestore.repository.RemoteStoreRepositoryRegistrationHelper.REMOTE_STORE_TRANSLOG_REPOSITORY_NAME_ATTRIBUTE_KEY;
-import static org.opensearch.action.admin.cluster.remotestore.repository.RemoteStoreRepositoryRegistrationHelper.buildRepositoryMetadata;
+import static org.opensearch.action.admin.cluster.remotestore.repository.RemoteStoreService.REMOTE_STORE_REPOSITORY_SETTINGS_ATTRIBUTE_KEY_PREFIX;
+import static org.opensearch.action.admin.cluster.remotestore.repository.RemoteStoreService.REMOTE_STORE_REPOSITORY_TYPE_ATTRIBUTE_KEY_FORMAT;
+import static org.opensearch.action.admin.cluster.remotestore.repository.RemoteStoreService.REMOTE_STORE_SEGMENT_REPOSITORY_NAME_ATTRIBUTE_KEY;
+import static org.opensearch.action.admin.cluster.remotestore.repository.RemoteStoreService.REMOTE_STORE_TRANSLOG_REPOSITORY_NAME_ATTRIBUTE_KEY;
+import static org.opensearch.action.admin.cluster.remotestore.repository.RemoteStoreService.buildRepositoryMetadata;
 import static org.opensearch.test.VersionUtils.allVersions;
 import static org.opensearch.test.VersionUtils.maxCompatibleVersion;
 import static org.opensearch.test.VersionUtils.randomCompatibleVersion;
@@ -186,14 +187,14 @@ public class JoinTaskExecutorTests extends OpenSearchTestCase {
         final AllocationService allocationService = mock(AllocationService.class);
         when(allocationService.adaptAutoExpandReplicas(any())).then(invocationOnMock -> invocationOnMock.getArguments()[0]);
         final RerouteService rerouteService = (reason, priority, listener) -> listener.onResponse(null);
-        final RepositoriesService repositoriesService = mock(RepositoriesService.class);
+        final RemoteStoreService remoteStoreService = mock(RemoteStoreService.class);
 
         final JoinTaskExecutor joinTaskExecutor = new JoinTaskExecutor(
             Settings.EMPTY,
             allocationService,
             logger,
             rerouteService,
-            repositoriesService
+            remoteStoreService
         );
 
         final DiscoveryNode clusterManagerNode = new DiscoveryNode(UUIDs.base64UUID(), buildNewFakeTransportAddress(), Version.CURRENT);
@@ -290,14 +291,14 @@ public class JoinTaskExecutorTests extends OpenSearchTestCase {
         final AllocationService allocationService = mock(AllocationService.class);
         when(allocationService.adaptAutoExpandReplicas(any())).then(invocationOnMock -> invocationOnMock.getArguments()[0]);
         final RerouteService rerouteService = (reason, priority, listener) -> listener.onResponse(null);
-        final RepositoriesService repositoriesService = mock(RepositoriesService.class);
+        final RemoteStoreService remoteStoreService = mock(RemoteStoreService.class);
 
         final JoinTaskExecutor joinTaskExecutor = new JoinTaskExecutor(
             Settings.EMPTY,
             allocationService,
             logger,
             rerouteService,
-            repositoriesService
+            remoteStoreService
         );
 
         final DiscoveryNode clusterManagerNode = new DiscoveryNode(UUIDs.base64UUID(), buildNewFakeTransportAddress(), Version.CURRENT);
@@ -517,13 +518,14 @@ public class JoinTaskExecutorTests extends OpenSearchTestCase {
         when(repository.getMetadata()).thenReturn(repositoryMetadata);
         final RepositoriesService repositoriesService = mock(RepositoriesService.class);
         when(repositoriesService.createRepository(any(), any())).thenReturn(repository);
+        final RemoteStoreService remoteStoreService = mock(RemoteStoreService.class);
 
         final JoinTaskExecutor joinTaskExecutor = new JoinTaskExecutor(
             Settings.EMPTY,
             allocationService,
             logger,
             rerouteService,
-            repositoriesService
+            remoteStoreService
         );
 
         final DiscoveryNode clusterManagerNode = new DiscoveryNode(
@@ -558,14 +560,14 @@ public class JoinTaskExecutorTests extends OpenSearchTestCase {
         final AllocationService allocationService = mock(AllocationService.class);
         when(allocationService.adaptAutoExpandReplicas(any())).then(invocationOnMock -> invocationOnMock.getArguments()[0]);
         final RerouteService rerouteService = (reason, priority, listener) -> listener.onResponse(null);
-        final RepositoriesService repositoriesService = mock(RepositoriesService.class);
+        final RemoteStoreService remoteStoreService = mock(RemoteStoreService.class);
 
         final JoinTaskExecutor joinTaskExecutor = new JoinTaskExecutor(
             Settings.EMPTY,
             allocationService,
             logger,
             rerouteService,
-            repositoriesService
+            remoteStoreService
         );
 
         final DiscoveryNode clusterManagerNode = new DiscoveryNode(
@@ -625,13 +627,14 @@ public class JoinTaskExecutorTests extends OpenSearchTestCase {
         when(repository.getMetadata()).thenReturn(repositoryMetadata);
         final RepositoriesService repositoriesService = mock(RepositoriesService.class);
         when(repositoriesService.createRepository(any(), any())).thenReturn(repository);
+        final RemoteStoreService remoteStoreService = mock(RemoteStoreService.class);
 
         final JoinTaskExecutor joinTaskExecutor = new JoinTaskExecutor(
             Settings.EMPTY,
             allocationService,
             logger,
             rerouteService,
-            repositoriesService
+            remoteStoreService
         );
 
         final DiscoveryNode clusterManagerNode = new DiscoveryNode(
@@ -666,14 +669,14 @@ public class JoinTaskExecutorTests extends OpenSearchTestCase {
         final AllocationService allocationService = mock(AllocationService.class);
         when(allocationService.adaptAutoExpandReplicas(any())).then(invocationOnMock -> invocationOnMock.getArguments()[0]);
         final RerouteService rerouteService = (reason, priority, listener) -> listener.onResponse(null);
-        final RepositoriesService repositoriesService = mock(RepositoriesService.class);
+        final RemoteStoreService remoteStoreService = mock(RemoteStoreService.class);
 
         final JoinTaskExecutor joinTaskExecutor = new JoinTaskExecutor(
             Settings.EMPTY,
             allocationService,
             logger,
             rerouteService,
-            repositoriesService
+            remoteStoreService
         );
 
         final DiscoveryNode clusterManagerNode = new DiscoveryNode(
