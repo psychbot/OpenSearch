@@ -232,7 +232,6 @@ import org.opensearch.usage.UsageService;
 import org.opensearch.watcher.ResourceWatcherService;
 
 import javax.net.ssl.SNIHostName;
-
 import java.io.BufferedWriter;
 import java.io.Closeable;
 import java.io.IOException;
@@ -257,7 +256,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
@@ -303,12 +301,12 @@ public class Node implements Closeable {
     );
 
     /**
-    * controls whether the node is allowed to persist things like metadata to disk
-    * Note that this does not control whether the node stores actual indices (see
-    * {@link #NODE_DATA_SETTING}). However, if this is false, {@link #NODE_DATA_SETTING}
-    * and {@link #NODE_MASTER_SETTING} must also be false.
-    *
-    */
+     * controls whether the node is allowed to persist things like metadata to disk
+     * Note that this does not control whether the node stores actual indices (see
+     * {@link #NODE_DATA_SETTING}). However, if this is false, {@link #NODE_DATA_SETTING}
+     * and {@link #NODE_MASTER_SETTING} must also be false.
+     *
+     */
     public static final Setting<Boolean> NODE_LOCAL_STORAGE_SETTING = Setting.boolSetting(
         "node.local_storage",
         true,
@@ -520,8 +518,8 @@ public class Node implements Closeable {
                     .collect(Collectors.toCollection(LinkedHashSet::new))
             );
             resourcesToClose.add(nodeEnvironment);
-            RepositoriesService repositoryService = repositoriesModule.getRepositoryService();
-            localNodeFactory = new LocalNodeFactory(settings, nodeEnvironment.nodeId());
+            final SetOnce<RepositoriesService> repositoriesServiceReference = new SetOnce<>();
+            localNodeFactory = new LocalNodeFactory(settings, nodeEnvironment.nodeId(), repositoriesServiceReference::get);
 
             final List<ExecutorBuilder<?>> executorBuilders = pluginsService.getExecutorBuilders(settings);
 
@@ -590,7 +588,6 @@ public class Node implements Closeable {
                 client
             );
 
-            final SetOnce<RepositoriesService> repositoriesServiceReference = new SetOnce<>();
             final ClusterInfoService clusterInfoService = newClusterInfoService(settings, clusterService, threadPool, client);
             final UsageService usageService = new UsageService();
 
@@ -703,8 +700,8 @@ public class Node implements Closeable {
             directoryFactories.putAll(builtInDirectoryFactories);
 
             final Map<String, IndexStorePlugin.RecoveryStateFactory> recoveryStateFactories = pluginsService.filterPlugins(
-                IndexStorePlugin.class
-            )
+                    IndexStorePlugin.class
+                )
                 .stream()
                 .map(IndexStorePlugin::getRecoveryStateFactories)
                 .flatMap(m -> m.entrySet().stream())
@@ -919,6 +916,7 @@ public class Node implements Closeable {
                 xContentRegistry,
                 recoverySettings
             );
+            RepositoriesService repositoryService = repositoriesModule.getRepositoryService();
             repositoriesServiceReference.set(repositoryService);
             SnapshotsService snapshotsService = new SnapshotsService(
                 settings,
@@ -968,7 +966,6 @@ public class Node implements Closeable {
             clusterInfoService.addListener(diskThresholdMonitor::onNewInfo);
 
             final RemoteStoreService remoteStoreService = new RemoteStoreService(repositoriesServiceReference::get);
-
             final DiscoveryModule discoveryModule = new DiscoveryModule(
                 settings,
                 threadPool,
@@ -1714,18 +1711,20 @@ public class Node implements Closeable {
         return networkModule.getHttpServerTransportSupplier().get();
     }
 
-    private static class LocalNodeFactory implements BiFunction<BoundTransportAddress, Supplier<RepositoriesService>, DiscoveryNode> {
+    private static class LocalNodeFactory implements Function<BoundTransportAddress, DiscoveryNode> {
         private final SetOnce<DiscoveryNode> localNode = new SetOnce<>();
         private final String persistentNodeId;
         private final Settings settings;
+        private final Supplier<RepositoriesService> repositoriesServiceSupplier;
 
-        private LocalNodeFactory(Settings settings, String persistentNodeId) {
+        private LocalNodeFactory(Settings settings, String persistentNodeId, Supplier<RepositoriesService> repositoriesServiceSupplier) {
             this.persistentNodeId = persistentNodeId;
             this.settings = settings;
+            this.repositoriesServiceSupplier = repositoriesServiceSupplier;
         }
 
         @Override
-        public DiscoveryNode apply(BoundTransportAddress boundTransportAddress, Supplier<RepositoriesService> repositoriesServiceSupplier) {
+        public DiscoveryNode apply(BoundTransportAddress boundTransportAddress) {
             Map<String, String> attributes = Node.NODE_ATTRIBUTES.getAsMap(settings);
             if (attributes
                 .keySet()
@@ -1733,7 +1732,7 @@ public class Node implements Closeable {
                 .anyMatch(key -> key.startsWith(RemoteStoreNode.REMOTE_STORE_NODE_ATTRIBUTE_KEY_PREFIX) == false)) {
                 localNode.set(DiscoveryNode.createLocal(settings, boundTransportAddress.publishAddress(), persistentNodeId));
             } else {
-                localNode.set(DiscoveryNode.createLocal(settings, boundTransportAddress.publishAddress(), persistentNodeId));
+                localNode.set(DiscoveryNode.createRemote(settings, boundTransportAddress.publishAddress(), persistentNodeId, repositoriesServiceSupplier));
             }
             return localNode.get();
         }

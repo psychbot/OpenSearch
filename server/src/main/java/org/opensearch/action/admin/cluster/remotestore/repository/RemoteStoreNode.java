@@ -24,6 +24,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.HashSet;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -32,7 +34,8 @@ import java.util.stream.Collectors;
 public class RemoteStoreNode extends DiscoveryNode {
 
     private final RepositoriesMetadata repositoriesMetadata;
-    private final Set<BlobStoreRepository> blobStoreRepository;
+    private final Function<String, BlobStoreRepository> repositoryFunction;
+    private final Set<RepoContainer> repoContainers;
 
     public static final String REMOTE_STORE_NODE_ATTRIBUTE_KEY_PREFIX = "remote_store";
     public static final String REMOTE_STORE_SEGMENT_REPOSITORY_NAME_ATTRIBUTE_KEY = "remote_store.segment.repository";
@@ -41,10 +44,11 @@ public class RemoteStoreNode extends DiscoveryNode {
     public static final String REMOTE_STORE_REPOSITORY_SETTINGS_ATTRIBUTE_KEY_PREFIX = "remote_store.repository.%s.settings.";
 
     public RemoteStoreNode(String name, String id, TransportAddress transportAddress, Map<String, String> attributes,
-                           Set<DiscoveryNodeRole> roles, Version version, Set<BlobStoreRepository> blobStoreRepository) {
+                           Set<DiscoveryNodeRole> roles, Version version, Function<String, BlobStoreRepository> repositoryFunction) {
         super(name, id, transportAddress, attributes, roles, version);
         this.repositoriesMetadata = buildRepositoriesMetadata();
-        this.blobStoreRepository = blobStoreRepository;
+        this.repositoryFunction = repositoryFunction;
+        this.repoContainers =  new HashSet<>();
     }
 
     RepositoriesMetadata buildRepositoriesMetadata() {
@@ -105,5 +109,15 @@ public class RemoteStoreNode extends DiscoveryNode {
 
         RemoteStoreNode that = (RemoteStoreNode) o;
         return this.getRepositoriesMetadata().equalsIgnoreGenerations(that.getRepositoriesMetadata());
+    }
+
+    private static class RepoContainer {
+        final String repoName;
+        final BlobStoreRepository blobStoreRepository;
+
+        private RepoContainer(String repoName, BlobStoreRepository blobStoreRepository) {
+            this.repoName = repoName;
+            this.blobStoreRepository = blobStoreRepository;
+        }
     }
 }

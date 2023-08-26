@@ -297,14 +297,11 @@ public class DiscoveryNode implements Writeable, ToXContentFragment {
         return new DiscoveryNode(Node.NODE_NAME_SETTING.get(settings), nodeId, publishAddress, attributes, roles, Version.CURRENT);
     }
 
-    public static DiscoveryNode createLocal(Settings settings, TransportAddress publishAddress, String nodeId, Supplier<RepositoriesService> repositoriesServiceSupplier) {
+    public static DiscoveryNode createRemote(Settings settings, TransportAddress publishAddress, String nodeId, Supplier<RepositoriesService> repositoriesServiceSupplier) {
         Map<String, String> attributes = Node.NODE_ATTRIBUTES.getAsMap(settings);
-        RepositoriesService repositoryService = repositoriesServiceSupplier.get();
         Set<DiscoveryNodeRole> roles = getRolesFromSettings(settings);
-        return new RemoteStoreNode(Node.NODE_NAME_SETTING.get(settings), nodeId, publishAddress, attributes, roles, Version.CURRENT, Set.of(
-            (BlobStoreRepository) repositoryService.repository(attributes.get(RemoteStoreNode.REMOTE_STORE_SEGMENT_REPOSITORY_NAME_ATTRIBUTE_KEY)),
-            (BlobStoreRepository) repositoryService.repository(attributes.get(RemoteStoreNode.REMOTE_STORE_TRANSLOG_REPOSITORY_NAME_ATTRIBUTE_KEY))
-            ));
+        return new RemoteStoreNode(Node.NODE_NAME_SETTING.get(settings), nodeId, publishAddress, attributes, roles, Version.CURRENT,
+            (r) -> (BlobStoreRepository) repositoriesServiceSupplier.get().repository(r));
     }
 
     /** extract node roles from the given settings */
