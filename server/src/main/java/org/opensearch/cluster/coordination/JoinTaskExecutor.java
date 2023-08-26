@@ -182,7 +182,7 @@ public class JoinTaskExecutor implements ClusterStateTaskExecutor<JoinTaskExecut
         // processing any joins
         Map<String, String> joiniedNodeNameIds = new HashMap<>();
         for (final Task joinTask : joiningNodes) {
-            boolean isRemoteStoreNode = joinTask.node().isRemoteStoreNode();
+            boolean isRemoteStoreNode = joinTask.node() instanceof RemoteStoreNode;
             if (joinTask.isBecomeClusterManagerTask() || joinTask.isFinishElectionTask()) {
                 // noop
             } else if (currentNodes.nodeExistsWithSameRoles(joinTask.node())) {
@@ -193,13 +193,12 @@ public class JoinTaskExecutor implements ClusterStateTaskExecutor<JoinTaskExecut
                  * {@link org.opensearch.gateway.GatewayMetaState#prepareInitialClusterState(TransportService, ClusterService, ClusterState)} **/
                 final DiscoveryNode node = joinTask.node();
                 if (isRemoteStoreNode) {
-                    RemoteStoreNode remoteStoreNode = new RemoteStoreNode(node);
-                    newState = ClusterState.builder(remoteStoreService.joinCluster(remoteStoreNode, currentState));
+                    newState = ClusterState.builder(remoteStoreService.joinCluster(joinTask.node(), currentState));
                 }
             } else {
                 final DiscoveryNode node = joinTask.node();
                 if (isRemoteStoreNode) {
-                    newState = ClusterState.builder(remoteStoreService.joinCluster(new RemoteStoreNode(node), currentState));
+                    newState = ClusterState.builder(remoteStoreService.joinCluster(node, currentState));
                 }
                 try {
                     if (enforceMajorVersion) {
@@ -473,11 +472,9 @@ public class JoinTaskExecutor implements ClusterStateTaskExecutor<JoinTaskExecut
          * TODO: The below check is valid till we support migration, once we start supporting migration a remote
          *       store node will be able to join a non remote store cluster and vice versa. #7986
          */
-        if (joiningNode.isRemoteStoreNode()) {
-            if (existingNodes.get(0).isRemoteStoreNode()) {
-                RemoteStoreNode joiningRemoteStoreNode = new RemoteStoreNode(joiningNode);
-                RemoteStoreNode existingRemoteStoreNode = new RemoteStoreNode(existingNodes.get(0));
-                if (existingRemoteStoreNode.equals(joiningRemoteStoreNode) == false) {
+        if (joiningNode instanceof RemoteStoreNode) {
+            if (existingNodes.get(0) instanceof RemoteStoreNode) {
+                if (existingNodes.get(0).equals(joiningNode) == false) {
                     throw new IllegalStateException(
                         "a remote store node [" + joiningNode + "] is trying to join a non " + "remote store cluster."
                     );
@@ -488,7 +485,7 @@ public class JoinTaskExecutor implements ClusterStateTaskExecutor<JoinTaskExecut
                 );
             }
         } else {
-            if (existingNodes.get(0).isRemoteStoreNode()) {
+            if (existingNodes.get(0) instanceof RemoteStoreNode) {
                 throw new IllegalStateException("a non remote store node [" + joiningNode + "] is trying to join a remote store cluster.");
             }
         }

@@ -21,6 +21,7 @@ import org.opensearch.core.action.ActionListener;
 import org.opensearch.repositories.RepositoriesService;
 import org.opensearch.repositories.Repository;
 import org.opensearch.repositories.RepositoryMissingException;
+import org.opensearch.repositories.blobstore.BlobStoreRepository;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -34,6 +35,7 @@ import java.util.function.Supplier;
 public class RemoteStoreService {
 
     private final Supplier<RepositoriesService> repositoriesService;
+    private BlobStoreRepository blobStoreRepository;
 
     public static final Setting<String> REMOTE_STORE_MIGRATION_SETTING = Setting.simpleString(
         "remote_store.migration",
@@ -182,16 +184,15 @@ public class RemoteStoreService {
         return newState;
     }
 
-    public ClusterState joinCluster(RemoteStoreNode joiningRemoteStoreNode, ClusterState currentState) {
+    public ClusterState joinCluster(DiscoveryNode joiningRemoteStoreNode, ClusterState currentState) {
         List<DiscoveryNode> existingNodes = new ArrayList<>(currentState.nodes().getNodes().values());
         if (existingNodes.isEmpty()) {
             return currentState;
         }
         ClusterState.Builder newState = ClusterState.builder(currentState);
-        if (existingNodes.get(0).isRemoteStoreNode()) {
-            RemoteStoreNode existingRemoteStoreNode = new RemoteStoreNode(existingNodes.get(0));
-            if (joiningRemoteStoreNode.equals(existingRemoteStoreNode)) {
-                newState = ClusterState.builder(createOrVerifyRepository(joiningRemoteStoreNode.getRepositoriesMetadata(), currentState));
+        if (existingNodes.get(0) instanceof RemoteStoreNode) {
+            if (joiningRemoteStoreNode.equals(existingNodes.get(0)) && joiningRemoteStoreNode instanceof RemoteStoreNode) {
+                newState = ClusterState.builder(createOrVerifyRepository(((RemoteStoreNode)joiningRemoteStoreNode).getRepositoriesMetadata(), currentState));
             }
         } else {
             throw new IllegalStateException(

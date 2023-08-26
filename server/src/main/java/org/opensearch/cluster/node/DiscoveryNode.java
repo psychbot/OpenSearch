@@ -44,6 +44,8 @@ import org.opensearch.core.common.transport.TransportAddress;
 import org.opensearch.core.xcontent.ToXContentFragment;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.node.Node;
+import org.opensearch.repositories.RepositoriesService;
+import org.opensearch.repositories.blobstore.BlobStoreRepository;
 
 import java.io.IOException;
 import java.util.Collections;
@@ -57,6 +59,7 @@ import java.util.SortedSet;
 import java.util.TreeSet;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -294,6 +297,16 @@ public class DiscoveryNode implements Writeable, ToXContentFragment {
         return new DiscoveryNode(Node.NODE_NAME_SETTING.get(settings), nodeId, publishAddress, attributes, roles, Version.CURRENT);
     }
 
+    public static DiscoveryNode createLocal(Settings settings, TransportAddress publishAddress, String nodeId, Supplier<RepositoriesService> repositoriesServiceSupplier) {
+        Map<String, String> attributes = Node.NODE_ATTRIBUTES.getAsMap(settings);
+        RepositoriesService repositoryService = repositoriesServiceSupplier.get();
+        Set<DiscoveryNodeRole> roles = getRolesFromSettings(settings);
+        return new RemoteStoreNode(Node.NODE_NAME_SETTING.get(settings), nodeId, publishAddress, attributes, roles, Version.CURRENT, Set.of(
+            (BlobStoreRepository) repositoryService.repository(attributes.get(RemoteStoreNode.REMOTE_STORE_SEGMENT_REPOSITORY_NAME_ATTRIBUTE_KEY)),
+            (BlobStoreRepository) repositoryService.repository(attributes.get(RemoteStoreNode.REMOTE_STORE_TRANSLOG_REPOSITORY_NAME_ATTRIBUTE_KEY))
+            ));
+    }
+
     /** extract node roles from the given settings */
     public static Set<DiscoveryNodeRole> getRolesFromSettings(final Settings settings) {
         if (NODE_ROLES_SETTING.exists(settings)) {
@@ -471,13 +484,6 @@ public class DiscoveryNode implements Writeable, ToXContentFragment {
      */
     public boolean isSearchNode() {
         return roles.contains(DiscoveryNodeRole.SEARCH_ROLE);
-    }
-
-    public boolean isRemoteStoreNode() {
-        return this.getAttributes()
-            .keySet()
-            .stream()
-            .anyMatch(key -> key.startsWith(RemoteStoreNode.REMOTE_STORE_NODE_ATTRIBUTE_KEY_PREFIX));
     }
 
     /**

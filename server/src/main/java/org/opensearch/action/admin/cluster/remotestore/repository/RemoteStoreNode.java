@@ -8,10 +8,14 @@
 
 package org.opensearch.action.admin.cluster.remotestore.repository;
 
+import org.opensearch.Version;
 import org.opensearch.cluster.metadata.RepositoriesMetadata;
 import org.opensearch.cluster.metadata.RepositoryMetadata;
 import org.opensearch.cluster.node.DiscoveryNode;
+import org.opensearch.cluster.node.DiscoveryNodeRole;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.core.common.transport.TransportAddress;
+import org.opensearch.repositories.blobstore.BlobStoreRepository;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -19,6 +23,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -26,23 +31,25 @@ import java.util.stream.Collectors;
  */
 public class RemoteStoreNode extends DiscoveryNode {
 
-    private final DiscoveryNode node;
     private final RepositoriesMetadata repositoriesMetadata;
+    private final Set<BlobStoreRepository> blobStoreRepository;
+
     public static final String REMOTE_STORE_NODE_ATTRIBUTE_KEY_PREFIX = "remote_store";
     public static final String REMOTE_STORE_SEGMENT_REPOSITORY_NAME_ATTRIBUTE_KEY = "remote_store.segment.repository";
     public static final String REMOTE_STORE_TRANSLOG_REPOSITORY_NAME_ATTRIBUTE_KEY = "remote_store.translog.repository";
     public static final String REMOTE_STORE_REPOSITORY_TYPE_ATTRIBUTE_KEY_FORMAT = "remote_store.repository.%s.type";
     public static final String REMOTE_STORE_REPOSITORY_SETTINGS_ATTRIBUTE_KEY_PREFIX = "remote_store.repository.%s.settings.";
 
-    public RemoteStoreNode(DiscoveryNode node) {
-        super(node.getName(), node.getId(), node.getAddress(), node.getAttributes(), node.getRoles(), node.getVersion());
-        this.node = node;
+    public RemoteStoreNode(String name, String id, TransportAddress transportAddress, Map<String, String> attributes,
+                           Set<DiscoveryNodeRole> roles, Version version, Set<BlobStoreRepository> blobStoreRepository) {
+        super(name, id, transportAddress, attributes, roles, version);
         this.repositoriesMetadata = buildRepositoriesMetadata();
+        this.blobStoreRepository = blobStoreRepository;
     }
 
     RepositoriesMetadata buildRepositoriesMetadata() {
-        String segmentRepositoryName = node.getAttributes().get(REMOTE_STORE_SEGMENT_REPOSITORY_NAME_ATTRIBUTE_KEY);
-        String translogRepositoryName = node.getAttributes().get(REMOTE_STORE_TRANSLOG_REPOSITORY_NAME_ATTRIBUTE_KEY);
+        String segmentRepositoryName = getAttributes().get(REMOTE_STORE_SEGMENT_REPOSITORY_NAME_ATTRIBUTE_KEY);
+        String translogRepositoryName = getAttributes().get(REMOTE_STORE_TRANSLOG_REPOSITORY_NAME_ATTRIBUTE_KEY);
         if (segmentRepositoryName.equals(translogRepositoryName)) {
             return new RepositoriesMetadata(Collections.singletonList(buildRepositoryMetadata(segmentRepositoryName)));
         } else {
@@ -66,16 +73,16 @@ public class RemoteStoreNode extends DiscoveryNode {
     }
 
     private String validateAttributeNonNull(String attributeKey) {
-        String attributeValue = node.getAttributes().get(attributeKey);
+        String attributeValue = this.getAttributes().get(attributeKey);
         if (attributeValue == null || attributeValue.isEmpty()) {
-            throw new IllegalStateException("joining node [" + node + "] doesn't have the node attribute [" + attributeKey + "].");
+            throw new IllegalStateException("joining node [" + this + "] doesn't have the node attribute [" + attributeKey + "].");
         }
 
         return attributeValue;
     }
 
     private Map<String, String> validateSettingsAttributesNonNull(String settingsAttributeKeyPrefix) {
-        return node.getAttributes()
+        return this.getAttributes()
             .keySet()
             .stream()
             .filter(key -> key.startsWith(settingsAttributeKeyPrefix))
@@ -88,7 +95,7 @@ public class RemoteStoreNode extends DiscoveryNode {
 
     @Override
     public int hashCode() {
-        return Objects.hash(node, repositoriesMetadata);
+        return Objects.hash(this, repositoriesMetadata);
     }
 
     @Override
